@@ -1,0 +1,139 @@
+[gd_scene load_steps=15 format=3 uid="uid://bs72ogkvdd7d6"]
+
+[ext_resource type="Script" uid="uid://bhssvw3ifyk6q" path="res://proto_controller/proto_controller.gd" id="1_ucva2"]
+[ext_resource type="PackedScene" uid="uid://05y61xytw5oc" path="res://scenes/gun_robot.tscn" id="3_osm61"]
+[ext_resource type="AudioStream" uid="uid://k06sebgqxta1" path="res://sound/27. Lazarus Waves.mp3" id="3_ttl1e"]
+[ext_resource type="AudioStream" uid="uid://cnstxsj2jqa7f" path="res://sound/running-on-the-floor-359909.mp3" id="4_ttl1e"]
+[ext_resource type="AudioStream" uid="uid://buwdw4d4p6ovo" path="res://sound/man-scream-08-352438.mp3" id="5_o2250"]
+[ext_resource type="AudioStream" uid="uid://d4bkvga05ibos" path="res://sound/campfire-burning-wood-ambience-hd-375866.mp3" id="6_dloki"]
+[ext_resource type="Texture2D" uid="uid://cc213bca8psf" path="res://Normal/crosshair.png" id="7_eiwye"]
+[ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="9_200lf"]
+[ext_resource type="PackedScene" uid="uid://coxjyji40ey3u" path="res://scenes/Health_bar.tscn" id="9_g44rw"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iof21"]
+albedo_color = Color(0.91806, 0.575202, 0.222449, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_ucva2"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_iof21"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ti3r5"]
+blend_mode = 1
+albedo_texture = ExtResource("9_200lf")
+emission_enabled = true
+emission = Color(1, 0.0078125, 0.0078125, 1)
+grow = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_g44rw"]
+material = SubResource("StandardMaterial3D_ti3r5")
+size = Vector3(0.1, 0.1, 0.1)
+
+[node name="ProtoController" type="CharacterBody3D"]
+script = ExtResource("1_ucva2")
+can_sprint = true
+can_freefly = true
+shoot_cooldown = 1.0
+look_speed = 0.003
+base_speed = 10.0
+jump_velocity = 10.0
+sprint_speed = 15.0
+input_left = "move_left"
+input_right = "move_right"
+input_forward = "move_forward"
+input_back = "move_backward"
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+visible = false
+material_override = SubResource("StandardMaterial3D_iof21")
+cast_shadow = 0
+mesh = SubResource("CapsuleMesh_ucva2")
+
+[node name="Collider" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_iof21")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head"]
+
+[node name="SpotLight3D" type="SpotLight3D" parent="Head/Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.10252404)
+light_color = Color(0.98039216, 0.1882353, 0, 1)
+light_energy = 10.0
+spot_range = 50.0
+spot_angle = 52.5
+spot_angle_attenuation = 1.8024994
+
+[node name="Gun_Robot2" parent="Head/Camera3D" instance=ExtResource("3_osm61")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.06837851, -0.04188013, -0.044721015)
+
+[node name="bg_music" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("3_ttl1e")
+volume_db = -10.0
+autoplay = true
+
+[node name="run_sound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("4_ttl1e")
+volume_db = -20.0
+
+[node name="scream_sound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("5_o2250")
+
+[node name="burning_sound" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("6_dloki")
+
+[node name="HealthBar" parent="." instance=ExtResource("9_g44rw")]
+layout_direction = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = -18.0
+offset_right = 272.0
+offset_bottom = -12.0
+grow_vertical = 0
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="CenterContainer" type="CenterContainer" parent="CanvasLayer"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/CenterContainer"]
+modulate = Color(0.3307292, 0.15589058, 0.15589058, 1)
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+texture = ExtResource("7_eiwye")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CPUParticles3D" type="CPUParticles3D" parent="."]
+cast_shadow = 0
+amount = 64
+lifetime = 3.0
+randomness = 0.28
+fixed_fps = 42
+mesh = SubResource("BoxMesh_g44rw")
+emission_shape = 3
+emission_box_extents = Vector3(10, 1, 10)
+direction = Vector3(0, 5, 0)
+spread = 180.0
+gravity = Vector3(0, 10, 0)
+initial_velocity_min = 1.0
+initial_velocity_max = 3.0
+linear_accel_max = 1.0

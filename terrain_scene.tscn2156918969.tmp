@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3 uid="uid://by1gb4h1mr2dy"]
+
+[ext_resource type="Script" uid="uid://b64jyvnx04pno" path="res://terrain_scene.gd" id="1_lqyk6"]
+[ext_resource type="Script" uid="uid://c6dfcf0do3uwt" path="res://camera_3d.gd" id="2_jtcxs"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_jtcxs"]
+subdivide_width = 50
+subdivide_depth = 50
+
+[node name="TerrainScene" type="Node3D"]
+script = ExtResource("1_lqyk6")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0.71139586, 0)
+shadow_enabled = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(4.302118, 0, 0, 0, 4.302118, 0, 0, 0, 4.302118, 0, 0, 0)
+mesh = SubResource("PlaneMesh_jtcxs")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.7582254, 0.65199256, 0, -0.65199256, 0.7582254, 0, 0.5468739, 1.2443109)
+fov = 67.5
+script = ExtResource("2_jtcxs")

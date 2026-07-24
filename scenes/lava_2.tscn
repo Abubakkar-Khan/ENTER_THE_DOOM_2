@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3 uid="uid://curxwbpg3byxf"]
+
+[ext_resource type="Shader" uid="uid://byllyam32nhlu" path="res://new lava.gdshader" id="1_tfglm"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_kkclv"]
+noise_type = 3
+frequency = 0.0365
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_hl4on"]
+noise = SubResource("FastNoiseLite_kkclv")
+seamless = true
+in_3d_space = true
+seamless_blend_skirt = 0.31
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_v40a1"]
+render_priority = 1
+shader = ExtResource("1_tfglm")
+shader_parameter/noise_tex = SubResource("NoiseTexture2D_hl4on")
+shader_parameter/boil_speed = 0.03
+shader_parameter/scale = 2.0
+shader_parameter/emission_strength = 1.0
+shader_parameter/sun_dark = Vector3(0.7, 0, 0)
+shader_parameter/sun_mid = Vector3(0.8, 0.5, 0)
+shader_parameter/sun_hot = Vector3(1, 0.6, 0)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_wcwec"]
+material = SubResource("ShaderMaterial_v40a1")
+
+[node name="Lava2" type="MeshInstance3D"]
+transform = Transform3D(300, 0, 0, 0, 300, 0, 0, 0, 300, 0, 0, 0)
+gi_mode = 2
+gi_lightmap_texel_scale = 1.1586
+mesh = SubResource("PlaneMesh_wcwec")

@@ -1,0 +1,57 @@
+[gd_scene load_steps=6 format=3 uid="uid://dfqwivb3jvpxr"]
+
+[ext_resource type="Script" uid="uid://7p4utbm8ptsf" path="res://script/bullet.gd" id="1_mkf8s"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_h1aey"]
+size = Vector3(0.04, 0.04, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mkf8s"]
+render_priority = 1
+albedo_color = Color(0.77109075, 0.2982054, 0, 1)
+emission_enabled = true
+emission = Color(0.7254902, 0, 0, 1)
+emission_energy_multiplier = 5.0
+stencil_flags = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y25gk"]
+emission = Color(0.7254902, 0, 0, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_l5glv"]
+material = SubResource("StandardMaterial3D_y25gk")
+size = Vector3(0.04, 0.04, 0.04)
+
+[node name="Bullet" type="Node3D"]
+script = ExtResource("1_mkf8s")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_h1aey")
+surface_material_override/0 = SubResource("StandardMaterial3D_mkf8s")
+
+[node name="RayCast3D" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.252)
+target_position = Vector3(0, 0, -1)
+
+[node name="CPUParticles3D" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.5014867)
+emitting = false
+amount = 10
+one_shot = true
+explosiveness = 1.0
+mesh = SubResource("BoxMesh_l5glv")
+direction = Vector3(0, 0, 1.05)
+initial_velocity_min = 3.0
+initial_velocity_max = 5.0
+
+[node name="CPUParticles3D2" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5002145)
+emitting = false
+amount = 10
+lifetime = 0.2
+one_shot = true
+explosiveness = 1.0
+randomness = 1.0
+mesh = SubResource("BoxMesh_l5glv")
+direction = Vector3(0, 0, -1)
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 3.0
+initial_velocity_max = 5.0

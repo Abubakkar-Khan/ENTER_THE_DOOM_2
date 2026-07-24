@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3 uid="uid://b4mkt0i3rjhp4"]
+
+[ext_resource type="Script" uid="uid://2xdc56xqssvj" path="res://Texture_lava.gd" id="1_5qbu2"]
+
+[sub_resource type="Gradient" id="Gradient_hp4tc"]
+offsets = PackedFloat32Array(0, 0.3607306, 0.5707763, 0.7214612, 1)
+colors = PackedColorArray(0.5083639, 0.14312324, 0, 1, 0.7, 0.21000001, 0.21000001, 1, 0.9249171, 0.542052, 0.06849316, 1, 0.98, 0.8166667, 0, 1, 1, 1, 1, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_18yn6"]
+frequency = 0.004
+offset = Vector3(0, 665.1643, 0)
+fractal_type = 3
+fractal_octaves = 2
+fractal_lacunarity = 1.4
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_ybrus"]
+noise = SubResource("FastNoiseLite_18yn6")
+color_ramp = SubResource("Gradient_hp4tc")
+in_3d_space = true
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_5qbu2")
+speed = Vector2(0, 55)
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 0
+offset_right = 512.0
+offset_bottom = 512.0
+texture = SubResource("NoiseTexture2D_ybrus")

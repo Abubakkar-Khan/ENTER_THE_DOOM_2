@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://dydg84jh24t4j"]
+
+[ext_resource type="PackedScene" uid="uid://xpy0uss5lg7m" path="res://Imports/monster2/animated_fps_eye_monster.glb" id="3_ihxtl"]
+
+[node name="Monsters" type="Node3D"]
+
+[node name="Sketchfab_Scene" parent="." instance=ExtResource("3_ihxtl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 574.1588, 515.52936, -627.8161)

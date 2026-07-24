@@ -1,0 +1,61 @@
+[gd_scene load_steps=7 format=3 uid="uid://cdmtkskh87dg6"]
+
+[ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="1_bqqt6"]
+[ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="2_wu84c"]
+[ext_resource type="Texture2D" uid="uid://c4j40jy14fatb" path="res://Texture/menu_texture.jpg" id="3_8ln24"]
+[ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="4_wu84c"]
+[ext_resource type="PackedScene" uid="uid://ch7kkvhnpnfwg" path="res://scenes/canvas_layer.tscn" id="5_8ln24"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rtw2f"]
+shader = ExtResource("1_bqqt6")
+shader_parameter/intensity = 2.0
+shader_parameter/softness = 2.5
+
+[node name="Main_Menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+material = SubResource("ShaderMaterial_rtw2f")
+position = Vector2(581, 315)
+amount = 80
+texture = ExtResource("2_wu84c")
+lifetime = 2.5
+emission_shape = 3
+emission_rect_extents = Vector2(600, 350)
+gravity = Vector2(0, -50)
+scale_amount_min = 0.2
+scale_amount_max = 0.2
+
+[node name="TextureRect2" type="TextureRect" parent="."]
+show_behind_parent = true
+layout_mode = 0
+offset_right = 2684.0
+offset_bottom = 1543.0
+scale = Vector2(0.43, 0.43)
+texture = ExtResource("3_8ln24")
+
+[node name="play_btn" type="MenuButton" parent="."]
+layout_mode = 0
+offset_left = 487.0
+offset_top = 319.0
+offset_right = 552.6667
+offset_bottom = 329.33334
+scale = Vector2(3, 3)
+script = ExtResource("4_wu84c")
+
+[node name="quit_btn" type="MenuButton" parent="."]
+layout_mode = 0
+offset_left = 547.0
+offset_top = 382.0
+offset_right = 572.6667
+offset_bottom = 392.33334
+scale = Vector2(3, 3)
+script = ExtResource("4_wu84c")
+
+[node name="CanvasLayer" parent="." instance=ExtResource("5_8ln24")]
+visible = false
