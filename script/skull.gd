@@ -1,167 +1,134 @@
 extends CharacterBody3D
 
-signal skull_died
+signal exploded(position: Vector3)
 
-@export var health: float = 2.0
-@export var hover_speed: float = 5.0
-@export var charge_speed: float = 16.0
-@export var attack_range: float = 2.0
-@export var charge_range: float = 15.0
-@export var orbit_radius: float = 8.0
-@export var jitter_strength: float = 4.0
-@export var rotation_speed: float = 10.0
-@export var charge_cooldown: float = 1.2
-@export var charge_duration: float = 0.35
-@export var swarm_separation: float = 3.0
+@export var health: float = 1.0
+@export var speed: float = 13.0
+@export var turn_speed: float = 10.0
+@export var detection_range: float = 80.0
+@export var attack_range: float = 1.5
+@export var explosion_radius: float = 2.0
+@export var explosion_damage: float = 25.0
+@export var separation_radius: float = 2.0
+@export var separation_force: float = 6.0
 
-@onready var sketchfab_scene: Node3D = $Sketchfab_Scene
-@onready var death_particles: CPUParticles3D = $death_particles
-@onready var explosion_sound: AudioStreamPlayer3D = $explosion_sound
-
-var player = null
+var player: Node3D = null
 var time_alive: float = 0.0
-var cooldown_timer: float = 0.0
-var charge_timer: float = 0.0
-var is_charging: bool = false
-var charge_direction: Vector3 = Vector3.ZERO
-var orbit_offset: Vector3 = Vector3.ZERO
+var drift_seed: float = 0.0
+var is_exploding: bool = false
 
 func _ready():
-	player = get_tree().root.find_child("ProtoController", true, false)
-	
-	# Random orbit offset so multiple skulls don't stack
-	orbit_offset = Vector3(
-		randf_range(-orbit_radius, orbit_radius),
-		randf_range(-3.0, 3.0),
-		randf_range(-orbit_radius, orbit_radius)
-	)
+	motion_mode = MOTION_MODE_FLOATING
+	add_to_group("flying_skulls")
+	_find_player()
+	drift_seed = randf_range(0.0, 100.0)
+
+func _find_player():
+	player = get_tree().get_first_node_in_group("player")
+	if player:
+		return
+	var names: Array[String] = ["ProtoController", "Player", "FPSController", "PlayerBody"]
+	for n in names:
+		player = get_tree().root.find_child(n, true, false)
+		if player:
+			return
+	push_warning("FlyingSkull: No player found! Add player to 'player' group.")
 
 func _physics_process(delta):
-	if not player or health <= 0:
+	if is_exploding or player == null:
 		return
 	
 	time_alive += delta
 	
-	if cooldown_timer > 0:
-		cooldown_timer -= delta
+	var to_player: Vector3 = player.global_position - global_position
+	var dist: float = to_player.length()
 	
-	var to_player = player.global_position - global_position
-	var dist = to_player.length()
+	# EXPLODE ON TOUCH
+	if dist <= attack_range:
+		explode()
+		return
 	
-	# State machine
-	if is_charging:
-		process_charge(delta, dist)
-	elif dist <= charge_range and dist > attack_range and cooldown_timer <= 0:
-		start_charge(to_player)
-	else:
-		process_hover(delta, to_player, dist)
+	# Too far: do nothing
+	if dist > detection_range:
+		return
 	
-	# Full 3D rotation toward movement direction
-	face_movement_direction(delta)
+	# === HOMING ===
+	var dir: Vector3 = to_player.normalized()
 	
-	move_and_slide()
-
-func start_charge(to_player: Vector3):
-	is_charging = true
-	charge_timer = charge_duration
-	cooldown_timer = charge_cooldown + randf_range(-0.2, 0.3)
+	# === TINY DRIFT ===
+	var drift: Vector3 = Vector3(
+		sin(time_alive * 3.1 + drift_seed),
+		cos(time_alive * 2.8 + drift_seed),
+		cos(time_alive * 3.7 + drift_seed)
+	) * 0.2
+	dir += drift
 	
-	# Aim at player with slight random inaccuracy (Devil Daggers feel)
-	charge_direction = to_player.normalized()
-	charge_direction += Vector3(
-		randf_range(-0.25, 0.25),
-		randf_range(-0.15, 0.15),
-		randf_range(-0.25, 0.25)
-	)
-	charge_direction = charge_direction.normalized()
-
-func process_charge(delta, dist):
-	charge_timer -= delta
-	velocity = charge_direction * charge_speed
-	
-	# End charge if timer expires or we get close
-	if charge_timer <= 0 or dist <= attack_range:
-		is_charging = false
-		velocity *= 0.3  # Brief slowdown after charge
-
-func process_hover(delta, to_player: Vector3, dist: float):
-	var target_pos: Vector3
-	
-	if dist > orbit_radius * 1.5:
-		# Far away: move toward player aggressively
-		target_pos = to_player.normalized() * hover_speed
-	else:
-		# Close/mid range: orbit erratically around player
-		var orbit_point = player.global_position + orbit_offset
-		orbit_offset = orbit_offset.rotated(Vector3.UP, delta * 1.5)  # Orbit slowly
-		orbit_offset.y = sin(time_alive * 2.0 + orbit_offset.x) * 3.0  # Bob up/down
-		
-		var to_orbit = orbit_point - global_position
-		target_pos = to_orbit.normalized() * hover_speed
-	
-	# Erratic jitter (the Devil Daggers twitch)
-	var jitter = Vector3(
-		sin(time_alive * 11.7) * jitter_strength,
-		cos(time_alive * 8.3) * jitter_strength,
-		cos(time_alive * 13.1) * jitter_strength
-	)
-	
-	# Swarm separation — push away from other skulls
-	var separation = get_separation_force()
-	
-	velocity = target_pos + jitter + separation
-	
-	# Cap speed when not charging
-	if velocity.length() > hover_speed * 1.5:
-		velocity = velocity.normalized() * hover_speed * 1.5
-
-func get_separation_force() -> Vector3:
-	var force = Vector3.ZERO
-	var skulls = get_tree().get_nodes_in_group("flying_skulls")
-	
-	for skull in skulls:
-		if skull == self:
+	# === SEPARATION (push away from other skulls only) ===
+	for skull in get_tree().get_nodes_in_group("flying_skulls"):
+		if skull == self or not is_instance_valid(skull):
 			continue
-		var diff = global_position - skull.global_position
-		var dist = diff.length()
-		if dist < swarm_separation and dist > 0.01:
-			force += diff.normalized() * (swarm_separation - dist) * 5.0
+		var skull_node: Node3D = skull
+		var offset: Vector3 = global_position - skull_node.global_position
+		var d: float = offset.length()
+		if d < separation_radius and d > 0.01:
+			var push: float = (separation_radius - d) / separation_radius
+			dir += offset.normalized() * push * separation_force
 	
-	return force
-
-func face_movement_direction(delta):
-	# Face where we're moving, or face player if idle
-	var look_target: Vector3
-	if velocity.length() > 0.5:
-		look_target = global_position + velocity
-	else:
-		look_target = player.global_position
+	dir = dir.normalized()
 	
-	var target_transform = transform.looking_at(look_target, Vector3.UP)
-	transform = transform.interpolate_with(target_transform, rotation_speed * delta)
+	# === MISSILE MOVEMENT ===
+	velocity = velocity.lerp(dir * speed, turn_speed * delta)
+	move_and_slide()
+	
+	# Backup ram check
+	for i in get_slide_collision_count():
+		if get_slide_collision(i).get_collider() == player:
+			explode()
+			return
+	
+	# === FACE AWAY FROM PLAYER ===
+	look_at(player.global_position, Vector3.UP)
+	rotate_y(PI)
+	
+	# === HOVER BOB ===
+	if has_node("Sketchfab_Scene"):
+		var mesh: Node3D = $Sketchfab_Scene
+		mesh.position.y = sin(time_alive * 2.0) * 0.15
 
 func take_damage(amount: float):
+	if is_exploding:
+		return
 	health -= amount
-	print("Skull health: ", health)
-	
 	if health <= 0:
-		die()
-	else:
-		# Knockback from hit
-		is_charging = false
-		velocity = -global_position.direction_to(player.global_position) * 8.0
+		explode()
 
-func die():
-	health = 0
-	sketchfab_scene.visible = false
-	if death_particles and not death_particles.emitting:
-		death_particles.emitting = true
-	if explosion_sound and not explosion_sound.playing:
-		explosion_sound.play()
+func explode():
+	if is_exploding:
+		return
+	is_exploding = true
 	
-	$CollisionShape3D.set_deferred("disabled", true)
+	if player and global_position.distance_to(player.global_position) <= explosion_radius:
+		if player.has_method("take_damage"):
+			player.take_damage(explosion_damage)
+		elif player.has_method("apply_damage"):
+			player.apply_damage(explosion_damage)
+	
+	if has_node("Sketchfab_Scene"):
+		$Sketchfab_Scene.visible = false
+	
+	var particles = get_node_or_null("death_particles")
+	if particles and particles is CPUParticles3D:
+		particles.emitting = true
+	
+	var snd = get_node_or_null("explosion_sound")
+	if snd:
+		snd.play()
+	
+	for child in get_children():
+		if child is CollisionShape3D:
+			child.set_deferred("disabled", true)
+	
 	set_physics_process(false)
-	
-	emit_signal("skull_died")
+	emit_signal("exploded", global_position)
 	await get_tree().create_timer(1.0).timeout
 	queue_free()

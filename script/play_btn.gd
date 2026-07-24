@@ -6,10 +6,16 @@ extends Button
 @export var base_red: Color = Color(1, 0, 0) # Normal Red (1.0 brightness)
 @export_file("*.tscn") var game_scene_path: String # This lets you pick the file in the Inspector
 
+@export var hover_color := Color(0.0, 0.0, 0.0, 0.4)
+@export var normal_color := Color(0.75, 0.75, 0.75, 0.0)
+
 var is_hovered: bool = false # A "switch" to tell if the mouse is there
 var time: float = 0.0        # Keeps track of time for the animation
 
 func _ready():
+	mouse_entered.connect(_on_hover)
+	mouse_exited.connect(_on_exit)
+	
 	# This connects the button's "ears" to the script
 	# mouse_entered: triggers when the cursor touches the button
 	# mouse_exited: triggers when the cursor leaves the button
@@ -56,3 +62,9 @@ func _process(delta: float):
 		
 		# Apply that glowing color to the text
 		add_theme_color_override("font_color", current_glow)
+
+func _on_hover():
+	modulate = hover_color
+
+func _on_exit():
+	modulate = normal_color

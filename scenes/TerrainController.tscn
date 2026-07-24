@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=4 uid="uid://bl4p50ecoftu7"]
+[gd_scene load_steps=35 format=4 uid="uid://bl4p50ecoftu7"]
 
 [ext_resource type="Script" uid="uid://bj8m8d5inwdhs" path="res://script/TerrainController.gd" id="1_asp8j"]
 [ext_resource type="Shader" uid="uid://dsfsgyarguyip" path="res://terrain.gdshader" id="2_qfjvb"]
@@ -10,8 +10,6 @@
 [ext_resource type="Script" uid="uid://8l3xa5qdftjj" path="res://scenes/enemy_spawner.gd" id="8_ytahn"]
 [ext_resource type="PackedScene" uid="uid://ch7kkvhnpnfwg" path="res://scenes/canvas_layer.tscn" id="9_8g1jr"]
 [ext_resource type="PackedScene" uid="uid://dgjgcfxkeuevm" path="res://scenes/eye.tscn" id="10_8g1jr"]
-[ext_resource type="PackedScene" uid="uid://b5o2m3hxvefjn" path="res://scenes/Eye_enemy.tscn" id="11_asp8j"]
-[ext_resource type="PackedScene" uid="uid://kf7g0vi4m0mg" path="res://Imports/skull/stylized_skull.glb" id="12_tjve5"]
 [ext_resource type="PackedScene" uid="uid://tgy54mbwhwed" path="res://scenes/skull.tscn" id="14_jvcpg"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_n51mc"]
@@ -207,11 +205,11 @@ shape = SubResource("ConcavePolygonShape3D_asp8j")
 [node name="EnemySpawner" type="Node3D" parent="NavigationRegion3D"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.559687, 4.944042)
 script = ExtResource("8_ytahn")
-enemy_template = ExtResource("11_asp8j")
+enemy_template = ExtResource("14_jvcpg")
 spawn_radius = 300.0
-spawn_delay_max = 7.0
-enemies_per_wave_min = 0
-enemies_per_wave_max = 0
+spawn_delay_max = 3.0
+enemies_per_wave_min = 15
+enemies_per_wave_max = 30
 
 [node name="Node3D" type="Node3D" parent="."]
 
@@ -231,9 +229,6 @@ light_size = 1.0
 spot_range = 209.2436
 spot_angle = 42.969856
 spot_angle_attenuation = 1.8024994
-
-[node name="Sketchfab_Scene" parent="." instance=ExtResource("12_tjve5")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13.755027, 5.6130543, 45.399788)
 
 [node name="skull" parent="." instance=ExtResource("14_jvcpg")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.5501, 5.6900544, 46.717186)

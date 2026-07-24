@@ -1,10 +1,12 @@
-[gd_scene load_steps=7 format=3 uid="uid://cdmtkskh87dg6"]
+[gd_scene load_steps=9 format=3 uid="uid://cdmtkskh87dg6"]
 
 [ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="1_bqqt6"]
 [ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="2_wu84c"]
 [ext_resource type="Texture2D" uid="uid://c4j40jy14fatb" path="res://Texture/menu_texture.jpg" id="3_8ln24"]
+[ext_resource type="Texture2D" uid="uid://ca6ddt413ovwq" path="res://Texture/main.jpg" id="3_oa1go"]
 [ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="4_wu84c"]
 [ext_resource type="PackedScene" uid="uid://ch7kkvhnpnfwg" path="res://scenes/canvas_layer.tscn" id="5_8ln24"]
+[ext_resource type="Script" uid="uid://co8yja8fltdkm" path="res://script/quit_btn.gd" id="6_tbmy8"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_rtw2f"]
 shader = ExtResource("1_bqqt6")
@@ -31,31 +33,51 @@ gravity = Vector2(0, -50)
 scale_amount_min = 0.2
 scale_amount_max = 0.2
 
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_oa1go")
+expand_mode = 1
+stretch_mode = 5
+
 [node name="TextureRect2" type="TextureRect" parent="."]
+visible = false
 show_behind_parent = true
-layout_mode = 0
-offset_right = 2684.0
-offset_bottom = 1543.0
-scale = Vector2(0.43, 0.43)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 33.999878
+offset_top = 27.999939
+offset_right = 2718.0
+offset_bottom = 1571.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.4, 0.4)
 texture = ExtResource("3_8ln24")
+stretch_mode = 5
 
-[node name="play_btn" type="MenuButton" parent="."]
+[node name="play_btn2" type="Button" parent="."]
+modulate = Color(1, 1, 1, 0)
 layout_mode = 0
-offset_left = 487.0
-offset_top = 319.0
-offset_right = 552.6667
-offset_bottom = 329.33334
-scale = Vector2(3, 3)
+offset_left = 393.0
+offset_top = 395.0
+offset_right = 760.0
+offset_bottom = 476.0
 script = ExtResource("4_wu84c")
 
-[node name="quit_btn" type="MenuButton" parent="."]
+[node name="Quit_btn" type="Button" parent="."]
+modulate = Color(1, 1, 1, 0)
 layout_mode = 0
-offset_left = 547.0
-offset_top = 382.0
-offset_right = 572.6667
-offset_bottom = 392.33334
-scale = Vector2(3, 3)
-script = ExtResource("4_wu84c")
+offset_left = 392.0
+offset_top = 488.0
+offset_right = 764.0
+offset_bottom = 591.0
+script = ExtResource("6_tbmy8")
 
 [node name="CanvasLayer" parent="." instance=ExtResource("5_8ln24")]
 visible = false

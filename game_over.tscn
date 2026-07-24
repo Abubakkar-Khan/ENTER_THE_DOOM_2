@@ -1,0 +1,45 @@
+[gd_scene load_steps=4 format=3 uid="uid://c3m7hxpq2elh5"]
+
+[ext_resource type="Texture2D" uid="uid://boe3eorjjqkq4" path="res://Texture/gameover2.jpg" id="1_ccer4"]
+[ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="1_y26ei"]
+[ext_resource type="Script" uid="uid://cvx5lfwc5b1w7" path="res://script/menu_btn.gd" id="2_yxx3c"]
+
+[node name="Game_Over" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TextureRect" type="TextureRect" parent="."]
+z_index = -1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_ccer4")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Play_btn" type="Button" parent="."]
+modulate = Color(0, 0, 0, 0)
+layout_mode = 0
+offset_left = 399.0
+offset_top = 450.0
+offset_right = 753.0
+offset_bottom = 508.0
+theme_override_colors/icon_normal_color = Color(0, 0, 0, 1)
+theme_override_colors/icon_hover_pressed_color = Color(1.0510405, 0.9276329, 1.0415477, 1)
+script = ExtResource("1_y26ei")
+
+[node name="menu_btn" type="Button" parent="."]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 0
+offset_left = 397.0
+offset_top = 522.0
+offset_right = 756.0
+offset_bottom = 576.0
+script = ExtResource("2_yxx3c")
