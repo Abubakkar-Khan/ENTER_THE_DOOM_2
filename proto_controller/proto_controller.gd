@@ -142,7 +142,10 @@ func die():
 
 	await fade.finished
 	Engine.time_scale = 1.0
-
+	
+	GameData.score = score
+	#GameData.survival_time = timer_seconds	
+	
 	get_tree().change_scene_to_file("res://scenes/game_over.tscn")
 
 # --- MOVEMENT HELPER FUNCTIONS ---

@@ -7,18 +7,24 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_mg525"]
 shader = ExtResource("1_mg525")
-shader_parameter/target_resolution = Vector2(320, 240)
-shader_parameter/color_levels = 6.0
-shader_parameter/dither_strength = 0.35
 shader_parameter/brightness = 1.4
 shader_parameter/contrast = 1.4
 shader_parameter/gamma = 0.9
+shader_parameter/shadow_lift = 0.06
+shader_parameter/desaturate = 0.82
 shader_parameter/accent_intensity = 0.6
 shader_parameter/accent_threshold = 0.35
+shader_parameter/bleed_intensity = 0.18
+shader_parameter/bleed_radius = 3.5
+shader_parameter/grain_strength = 0.025
+shader_parameter/grain_size = 1200.0
 shader_parameter/chromatic = 0.25
-shader_parameter/vignette_strength = 0.2
 shader_parameter/heat_strength = 0.25
 shader_parameter/heat_speed = 0.6
+shader_parameter/vignette_strength = 0.2
+shader_parameter/vignette_radius = 1.3
+shader_parameter/dither_strength = 0.35
+shader_parameter/color_levels = 6.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_kfwc7"]
 shader = ExtResource("3_mg525")

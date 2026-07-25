@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://c3m7hxpq2elh5"]
+[gd_scene load_steps=9 format=3 uid="uid://c3m7hxpq2elh5"]
 
 [ext_resource type="Texture2D" uid="uid://boe3eorjjqkq4" path="res://Texture/gameover2.jpg" id="1_v3hpu"]
 [ext_resource type="Script" uid="uid://cq42sws7o6ijf" path="res://script/game_over_control.gd" id="2_irg28"]
 [ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="3_2jtsn"]
 [ext_resource type="Script" uid="uid://cvx5lfwc5b1w7" path="res://script/menu_btn.gd" id="4_8bugq"]
+[ext_resource type="FontFile" uid="uid://7wtnp7x7c2f8" path="res://font/Norse.otf" id="5_irg28"]
 [ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="5_wawo4"]
 [ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="6_56v3a"]
 
@@ -27,7 +28,7 @@ offset_left = -163.0
 offset_top = -67.0
 offset_right = 1553.0
 offset_bottom = 870.0
-mouse_filter = 1
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
 [node name="TextureRect" type="TextureRect" parent="."]
@@ -71,6 +72,33 @@ offset_top = 514.0
 offset_right = 763.0
 offset_bottom = 584.0
 script = ExtResource("4_8bugq")
+
+[node name="ScoreLabel" type="Label" parent="Game_Over_Control"]
+layout_mode = 0
+offset_left = 293.0
+offset_top = 375.0
+offset_right = 511.0
+offset_bottom = 417.0
+theme_override_colors/font_color = Color(0.50980395, 0.011764706, 0.03137255, 1)
+theme_override_fonts/font = ExtResource("5_irg28")
+theme_override_font_sizes/font_size = 32
+text = "100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TimeLabel" type="Label" parent="Game_Over_Control"]
+z_index = 1
+layout_mode = 0
+offset_left = 651.0
+offset_top = 370.0
+offset_right = 870.0
+offset_bottom = 426.0
+theme_override_colors/font_color = Color(0.50980395, 0.011764706, 0.03137255, 1)
+theme_override_fonts/font = ExtResource("5_irg28")
+theme_override_font_sizes/font_size = 32
+text = "02:15"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CPUParticles2D" type="CPUParticles2D" parent="."]
 material = SubResource("ShaderMaterial_k2vha")

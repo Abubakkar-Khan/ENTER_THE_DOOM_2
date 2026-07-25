@@ -24,6 +24,7 @@ driver/enable_input=true
 [autoload]
 
 VoiceController="*res://scenes/voice_controller.tscn"
+GameData="*res://script/GameData.gd"
 
 [editor]
 

@@ -1,7 +1,10 @@
-[gd_scene load_steps=12 format=4 uid="uid://dgjgcfxkeuevm"]
+[gd_scene load_steps=13 format=4 uid="uid://dgjgcfxkeuevm"]
 
 [ext_resource type="Script" uid="uid://vr2t0t1nw1da" path="res://script/eye.gd" id="1_60o0r"]
 [ext_resource type="Texture2D" uid="uid://b0yig4536quro" path="res://Imports/eye/eye_0.jpg" id="2_60o0r"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_60o0r"]
+radius = 98.99489
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7xtv1"]
 resource_name = "wire_154154229"
@@ -108,8 +111,12 @@ stencil_mode = 1
 stencil_flags = 2
 stencil_outline_thickness = 0.072
 
-[node name="eye" type="Node3D"]
+[node name="CharacterBody3D" type="CharacterBody3D"]
 script = ExtResource("1_60o0r")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1.0000001, 0, 0, 0, 1.0000001, -3.5527137e-15, 0, 3.5527137e-15, 1.0000001, 1.5258789e-05, -1.5258789e-05, 0)
+shape = SubResource("SphereShape3D_60o0r")
 
 [node name="Sketchfab_Scene" type="Node3D" parent="."]
 transform = Transform3D(50.000004, 0, 0, 0, -2.1855692e-06, -49.999996, 0, 49.999996, -2.1855692e-06, 0, 0, 0)
