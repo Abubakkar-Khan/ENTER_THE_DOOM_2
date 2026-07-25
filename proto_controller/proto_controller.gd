@@ -52,6 +52,7 @@ var bullet = load("res://scenes/bullet.tscn")
 @onready var burning_sound: AudioStreamPlayer3D = $burning_sound
 
 @onready var health_bar: ProgressBar = $HealthBar
+@onready var death_fade: ColorRect = $CanvasLayer/DeathFade
 
 
 func _ready() -> void:
@@ -101,16 +102,35 @@ func take_damage(amount: float):
 		die()
 
 func die():
+	if is_dead:
+		return
+
 	is_dead = true
-	can_move = true
-	print("PLAYER DIED")
-	
+	can_move = false
+	can_shoot = false
+
 	if scream_sound:
 		scream_sound.play()
-	
-	# Wait 3 seconds then restart the level
-	await get_tree().create_timer(3.0).timeout
-	get_tree().reload_current_scene()
+
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	# Slow motion
+	var slow = create_tween()
+	slow.set_ignore_time_scale(true)
+	slow.tween_property(Engine, "time_scale", 0.15, 0.5)
+
+	# Wait a bit so the player sees the death
+	await get_tree().create_timer(0.4, true, false, true).timeout
+
+	# Fade to black
+	var fade = create_tween()
+	fade.set_ignore_time_scale(true)
+	fade.tween_property(death_fade, "color:a", 1.0, 1.6)
+
+	await fade.finished
+	Engine.time_scale = 1.0
+
+	get_tree().change_scene_to_file("res://scenes/game_over.tscn")
 
 # --- MOVEMENT HELPER FUNCTIONS ---
 

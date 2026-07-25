@@ -2,16 +2,15 @@ extends Control
 
 @onready var bg: TextureRect = $"../TextureRect"
 
-
 @onready var play: Button = $play_btn
-@onready var quit: Button = $Quit_btn
+@onready var menu: Button = $menu_btn
 
 const DESIGN_SIZE: Vector2 = Vector2(1920.0, 1080.0)
 
-const PLAY_POS: Vector2 = Vector2(955.0, 725.0)
-const QUIT_POS: Vector2 = Vector2(955.0, 875.0)
+const PLAY_POS: Vector2 = Vector2(955.0, 800.0)
+const MENU_POS: Vector2 = Vector2(955.0, 910.0)
 
-const BUTTON_SIZE: Vector2 = Vector2(680.0, 140.0)
+const BUTTON_SIZE: Vector2 = Vector2(680.0, 110.0)
 
 func _ready() -> void:
 	update_layout()
@@ -26,7 +25,7 @@ func update_layout() -> void:
 	var image_size: Vector2 = DESIGN_SIZE * ui_scale
 	var image_pos: Vector2 = bg.global_position + (bg.size - image_size) * 0.5
 
-	layout_button(quit, QUIT_POS, image_pos, ui_scale)
+	layout_button(menu, MENU_POS, image_pos, ui_scale)
 	layout_button(play, PLAY_POS, image_pos, ui_scale)
 
 func layout_button(

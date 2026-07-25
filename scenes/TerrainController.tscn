@@ -35,11 +35,8 @@ sdfgi_normal_bias = 0.8
 glow_enabled = true
 glow_bloom = 0.5
 fog_enabled = true
-fog_light_color = Color(0.048335627, 0, 0, 1)
-fog_density = 0.001
-volumetric_fog_density = 1.0
-volumetric_fog_albedo = Color(0.972549, 0.03137255, 0.06666667, 1)
-volumetric_fog_emission = Color(1, 0.13725491, 0, 1)
+fog_light_color = Color(0.47729045, 0.24962002, 4.813075e-08, 1)
+fog_light_energy = 0.08
 adjustment_enabled = true
 adjustment_brightness = 1.3
 

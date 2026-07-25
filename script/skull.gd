@@ -115,6 +115,7 @@ func explode():
 	
 	if has_node("Sketchfab_Scene"):
 		$Sketchfab_Scene.visible = false
+		$MeshInstance3D.visible = false
 	
 	var particles = get_node_or_null("death_particles")
 	if particles and particles is CPUParticles3D:

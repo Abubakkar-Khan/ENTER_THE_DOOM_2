@@ -1,26 +1,24 @@
 [gd_scene load_steps=9 format=3 uid="uid://ch7kkvhnpnfwg"]
 
 [ext_resource type="Shader" uid="uid://tbhjnjuhc7xq" path="res://script/canvas_layer2.gdshader" id="1_c4rma"]
+[ext_resource type="Shader" uid="uid://cwuyo6e2c7277" path="res://shader/experiment_view1.gdshader" id="1_mg525"]
 [ext_resource type="Shader" uid="uid://fkcmw7ab3inh" path="res://shader/canvas_shader.gdshader" id="2_ghj5q"]
-[ext_resource type="Shader" uid="uid://bdaod1e4c11fp" path="res://shader/infernal_psx_v2.gdshader" id="3_ek3oe"]
 [ext_resource type="Shader" uid="uid://d1k34wibierfw" path="res://shader/sin_city_infernal.gdshader" id="3_mg525"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_mg525"]
-shader = ExtResource("3_ek3oe")
-shader_parameter/u_contrast = 1.12
-shader_parameter/u_saturation = 1.05
-shader_parameter/u_palette_compress = 0.45
-shader_parameter/u_shadow_tint = 0.35
-shader_parameter/u_color_levels = 28.0
-shader_parameter/u_dither_strength = 0.35
-shader_parameter/u_heat_strength = 0.8
-shader_parameter/u_heat_speed = 1.5
-shader_parameter/u_heat_scale = 12.0
-shader_parameter/u_glow_intensity = 0.4
-shader_parameter/u_glow_radius = 2.5
-shader_parameter/u_sharpen = 0.25
-shader_parameter/u_eye_position = Vector2(0.5, 0.3)
-shader_parameter/u_eye_intensity = 1.0
+shader = ExtResource("1_mg525")
+shader_parameter/target_resolution = Vector2(320, 240)
+shader_parameter/color_levels = 6.0
+shader_parameter/dither_strength = 0.35
+shader_parameter/brightness = 1.4
+shader_parameter/contrast = 1.4
+shader_parameter/gamma = 0.9
+shader_parameter/accent_intensity = 0.6
+shader_parameter/accent_threshold = 0.35
+shader_parameter/chromatic = 0.25
+shader_parameter/vignette_strength = 0.2
+shader_parameter/heat_strength = 0.25
+shader_parameter/heat_speed = 0.6
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_kfwc7"]
 shader = ExtResource("3_mg525")
@@ -60,24 +58,25 @@ shader_parameter/brightness_boost = 1.1
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="ColorRect3" type="ColorRect" parent="."]
-visible = false
 material = SubResource("ShaderMaterial_mg525")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="ColorRect4" type="ColorRect" parent="."]
-visible = false
 material = SubResource("ShaderMaterial_kfwc7")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="ColorRect" type="ColorRect" parent="."]
+visible = false
 material = SubResource("ShaderMaterial_c4rma")
 offset_right = 2097.0
 offset_bottom = 1130.0
@@ -91,3 +90,4 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
