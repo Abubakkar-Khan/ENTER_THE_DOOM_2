@@ -43,6 +43,11 @@ var is_in_lava: bool = false
 
 var bullet = load("res://scenes/bullet.tscn")
 
+
+## Score
+var score := 0
+@onready var score_label: Label = $CanvasLayer/Score_Label
+
 ## IMPORTANT REFERENCES
 @onready var head: Node3D = $Head
 @onready var collider: CollisionShape3D = $Collider
@@ -54,6 +59,8 @@ var bullet = load("res://scenes/bullet.tscn")
 @onready var health_bar: ProgressBar = $HealthBar
 @onready var death_fade: ColorRect = $CanvasLayer/DeathFade
 
+@onready var game_timer: Timer = $Timer
+@onready var timer_label: Label = $CanvasLayer/Timer_Label
 
 func _ready() -> void:
 	current_health = max_health
@@ -64,6 +71,7 @@ func _ready() -> void:
 	look_rotation.y = rotation.y
 	look_rotation.x = head.rotation.x
 	
+	game_timer.timeout.connect(_on_timer_timeout)
 	# Attempt to link Lava trigger
 	var lava_trigger = get_parent().get_node_or_null("Lava2/Area3D")
 	if lava_trigger:
@@ -90,6 +98,11 @@ func _physics_process(delta: float) -> void:
 	handle_jump()
 	handle_movement(delta)
 	handle_footsteps()
+	
+	var time_left := int(game_timer.time_left)
+	var minutes := time_left / 60
+	var seconds := time_left % 60
+	timer_label.text = "%02d:%02d" % [minutes, seconds]
 
 func take_damage(amount: float):
 	if is_dead: return
@@ -240,3 +253,11 @@ func check_input_mappings():
 	for action in actions:
 		if not InputMap.has_action(action):
 			push_error("Missing Input Action: " + action)
+
+
+func _on_timer_timeout():
+	die()
+	
+func add_score(points):
+	score += points
+	score_label.text = str(score)

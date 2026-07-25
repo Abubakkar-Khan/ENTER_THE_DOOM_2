@@ -107,6 +107,9 @@ func explode():
 		return
 	is_exploding = true
 	
+	if player:
+		player.add_score(10)
+	
 	if player and global_position.distance_to(player.global_position) <= explosion_radius:
 		if player.has_method("take_damage"):
 			player.take_damage(explosion_damage)
