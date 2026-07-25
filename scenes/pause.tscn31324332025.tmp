@@ -1,0 +1,78 @@
+[gd_scene load_steps=5 format=3 uid="uid://dly78c6g7qwht"]
+
+[ext_resource type="Texture2D" uid="uid://cxxyw7aqrtpko" path="res://Texture/pause.jpg" id="1_r8yp4"]
+[ext_resource type="Script" uid="uid://dy5lo6xcogluf" path="res://script/pause_control.gd" id="2_aicil"]
+[ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="2_m0klm"]
+[ext_resource type="Script" uid="uid://cvx5lfwc5b1w7" path="res://script/menu_btn.gd" id="3_m0klm"]
+
+[node name="Pause" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="."]
+z_index = -1
+layout_mode = 0
+offset_left = -272.0
+offset_top = -109.0
+offset_right = 1444.0
+offset_bottom = 828.0
+color = Color(0, 0, 0, 1)
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_r8yp4")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ui_scale" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_aicil")
+
+[node name="resume_btn" type="Button" parent="ui_scale"]
+modulate = Color(0.93179345, 0.99452657, 0.99833494, 1)
+z_index = 5
+custom_minimum_size = Vector2(397, 0)
+layout_direction = 1
+layout_mode = 1
+offset_left = 379.0
+offset_top = 375.0
+offset_right = 773.0
+offset_bottom = 444.0
+
+[node name="restart_btn" type="Button" parent="ui_scale"]
+modulate = Color(0.93179345, 0.99452657, 0.99833494, 1)
+z_index = 5
+custom_minimum_size = Vector2(397, 0)
+layout_direction = 1
+layout_mode = 0
+offset_left = 380.0
+offset_top = 448.0
+offset_right = 770.0
+offset_bottom = 514.0
+script = ExtResource("2_m0klm")
+
+[node name="Menu_btn" type="Button" parent="ui_scale"]
+modulate = Color(0.93179345, 0.99452657, 0.99833494, 1)
+z_index = 5
+custom_minimum_size = Vector2(397, 0)
+layout_direction = 1
+layout_mode = 0
+offset_left = 375.0
+offset_top = 514.0
+offset_right = 778.0
+offset_bottom = 591.0
+script = ExtResource("3_m0klm")

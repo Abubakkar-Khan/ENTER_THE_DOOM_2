@@ -6,7 +6,7 @@ extends Button
 @export var base_red: Color = Color(1, 0, 0) # Normal Red (1.0 brightness)
 @export_file("*.tscn") var game_scene_path: String # This lets you pick the file in the Inspector
 
-@export var hover_color := Color(0.0, 0.0, 0.0, 0.4)
+@export var hover_color := Color(0.0, 0.0, 0.0, 0.5)
 @export var normal_color := Color(0.75, 0.75, 0.75, 0.0)
 
 var is_hovered: bool = false # A "switch" to tell if the mouse is there

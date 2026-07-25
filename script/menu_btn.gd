@@ -1,7 +1,7 @@
 extends Button
 
 
-@export var hover_color := Color(0.0, 0.0, 0.0, 0.4)
+@export var hover_color := Color(0.0, 0.0, 0.0, 0.5)
 @export var normal_color := Color(0.75, 0.75, 0.75, 0.0)
 
 # Called when the node enters the scene tree for the first time.
