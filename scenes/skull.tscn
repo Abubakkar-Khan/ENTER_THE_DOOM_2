@@ -108,3 +108,4 @@ transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, -0.5031738, 0.18822026)
 shape = SubResource("CapsuleShape3D_sco77")
 
 [node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="."]
+transform = Transform3D(1.6, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
