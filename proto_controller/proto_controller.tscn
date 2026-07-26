@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://bs72ogkvdd7d6"]
+[gd_scene load_steps=18 format=3 uid="uid://bs72ogkvdd7d6"]
 
 [ext_resource type="Script" uid="uid://bhssvw3ifyk6q" path="res://proto_controller/proto_controller.gd" id="1_ucva2"]
 [ext_resource type="PackedScene" uid="uid://05y61xytw5oc" path="res://scenes/gun_robot.tscn" id="3_osm61"]
@@ -7,10 +7,11 @@
 [ext_resource type="AudioStream" uid="uid://buwdw4d4p6ovo" path="res://sound/man-scream-08-352438.mp3" id="5_o2250"]
 [ext_resource type="AudioStream" uid="uid://d4bkvga05ibos" path="res://sound/campfire-burning-wood-ambience-hd-375866.mp3" id="6_dloki"]
 [ext_resource type="Texture2D" uid="uid://cc213bca8psf" path="res://Normal/crosshair.png" id="7_eiwye"]
-[ext_resource type="Texture2D" uid="uid://oep8tnd24pst" path="res://Texture/hud.webp" id="8_200lf"]
+[ext_resource type="Texture2D" uid="uid://doyq3sl6i5fuo" path="res://Texture/HUD_F.webp" id="8_8k16y"]
+[ext_resource type="Script" uid="uid://cx34l2lq8cqll" path="res://script/hud.gd" id="8_dqxa2"]
 [ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="9_200lf"]
 [ext_resource type="PackedScene" uid="uid://coxjyji40ey3u" path="res://scenes/Health_bar.tscn" id="9_g44rw"]
-[ext_resource type="FontFile" uid="uid://7wtnp7x7c2f8" path="res://font/Norse.otf" id="10_8k16y"]
+[ext_resource type="FontFile" uid="uid://ct83fy5uotrv8" path="res://font/Norsebold.otf" id="10_8k16y"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iof21"]
 albedo_color = Color(0.91806, 0.575202, 0.222449, 1)
@@ -90,6 +91,14 @@ stream = ExtResource("5_o2250")
 [node name="burning_sound" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource("6_dloki")
 
+[node name="eye_HealthBar" parent="." instance=ExtResource("9_g44rw")]
+z_index = 12
+z_as_relative = false
+offset_left = 179.0
+offset_top = 133.0
+offset_right = 520.0
+offset_bottom = 144.0
+
 [node name="HealthBar" parent="." instance=ExtResource("9_g44rw")]
 layout_direction = 1
 anchors_preset = 2
@@ -100,25 +109,29 @@ offset_top = -18.0
 offset_right = 272.0
 offset_bottom = -12.0
 grow_vertical = 0
+metadata/_edit_lock_ = true
 
 [node name="Timer" type="Timer" parent="."]
-wait_time = 100.0
+wait_time = 300.0
 one_shot = true
 autostart = true
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("8_dqxa2")
 
-[node name="hud" type="TextureRect" parent="CanvasLayer"]
+[node name="hud" type="TextureRect" parent="HUD"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = ExtResource("8_200lf")
+mouse_filter = 2
+texture = ExtResource("8_8k16y")
 expand_mode = 1
 stretch_mode = 5
+metadata/_edit_lock_ = true
 
-[node name="cross_hair" type="CenterContainer" parent="CanvasLayer"]
+[node name="cross_hair" type="CenterContainer" parent="HUD"]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -131,7 +144,7 @@ offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="TextureRect" type="TextureRect" parent="CanvasLayer/cross_hair"]
+[node name="TextureRect" type="TextureRect" parent="HUD/cross_hair"]
 modulate = Color(0.3307292, 0.15589058, 0.15589058, 1)
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
@@ -139,15 +152,17 @@ texture = ExtResource("7_eiwye")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="DeathFade" type="ColorRect" parent="CanvasLayer"]
-offset_left = -303.0
-offset_top = -129.0
-offset_right = 1392.0
-offset_bottom = 858.0
+[node name="DeathFade" type="ColorRect" parent="HUD"]
+z_index = 15
+offset_left = -139.0
+offset_top = -240.0
+offset_right = 1556.0
+offset_bottom = 747.0
 mouse_filter = 2
 color = Color(0, 0, 0, 0)
+metadata/_edit_lock_ = true
 
-[node name="Timer_Label" type="Label" parent="CanvasLayer"]
+[node name="Timer_Label" type="Label" parent="HUD"]
 offset_left = 896.0
 offset_top = 69.0
 offset_right = 996.0
@@ -158,7 +173,7 @@ theme_override_font_sizes/font_size = 32
 text = "test"
 horizontal_alignment = 1
 
-[node name="Score_Label" type="Label" parent="CanvasLayer"]
+[node name="Score_Label" type="Label" parent="HUD"]
 offset_left = 165.0
 offset_top = 83.0
 offset_right = 270.0

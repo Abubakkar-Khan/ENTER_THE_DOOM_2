@@ -10,6 +10,7 @@ extends CharacterBody3D
 @export var look_offset: Vector3 = Vector3(0, 1.5, 0)
 
 func _ready() -> void:
+	GameData.eye_health = health
 	if player == null:
 		printerr("EYE ERROR: The Player slot is empty! Assign it in the Inspector.")
 	else:
@@ -30,6 +31,7 @@ func _process(_delta: float) -> void:
 
 func take_damage(amount: float) -> void:
 	health -= amount
+	GameData.eye_health = health
 	print("Eye Health:", int(health))
 
 	if health <= 0:

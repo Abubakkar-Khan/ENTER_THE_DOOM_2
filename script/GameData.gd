@@ -1,4 +1,6 @@
 extends Node
 
-var score := 100
-var survival_time := 100.0
+var score := 0
+var survival_time := 0.0
+
+var eye_health = 30

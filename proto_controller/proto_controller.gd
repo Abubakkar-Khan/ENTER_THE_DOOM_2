@@ -46,7 +46,7 @@ var bullet = load("res://scenes/bullet.tscn")
 
 ## Score
 var score := 0
-@onready var score_label: Label = $CanvasLayer/Score_Label
+@onready var score_label: Label = $HUD/Score_Label
 
 ## IMPORTANT REFERENCES
 @onready var head: Node3D = $Head
@@ -57,10 +57,10 @@ var score := 0
 @onready var burning_sound: AudioStreamPlayer3D = $burning_sound
 
 @onready var health_bar: ProgressBar = $HealthBar
-@onready var death_fade: ColorRect = $CanvasLayer/DeathFade
+@onready var death_fade: ColorRect = $HUD/DeathFade
 
 @onready var game_timer: Timer = $Timer
-@onready var timer_label: Label = $CanvasLayer/Timer_Label
+@onready var timer_label: Label = $HUD/Timer_Label
 
 func _ready() -> void:
 	current_health = max_health
@@ -141,12 +141,45 @@ func die():
 	fade.tween_property(death_fade, "color:a", 1.0, 1.6)
 
 	await fade.finished
+	print(1)
+
 	Engine.time_scale = 1.0
+	print(2)
 	
 	GameData.score = score
-	#GameData.survival_time = timer_seconds	
+	GameData.survival_time = 300 - int(game_timer.time_left)
 	
-	get_tree().change_scene_to_file("res://scenes/game_over.tscn")
+	print("Changing scene...")
+	var err = get_tree().change_scene_to_file("res://scenes/game_over.tscn")
+	print(err)
+
+
+#func die():
+	#if is_dead:
+		#return
+#
+	#is_dead = true
+	#can_move = false
+	#can_shoot = false
+#
+	#if scream_sound:
+		#scream_sound.play()
+#
+	#Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+#
+	#Engine.time_scale = 0.15
+#
+	#var fade = create_tween()
+	#fade.set_ignore_time_scale(true)
+	#fade.tween_property(death_fade, "color:a", 1.0, 2.0)
+#
+	#fade.finished.connect(func():
+		#Engine.time_scale = 1.0
+		#get_tree().change_scene_to_file("res://scenes/game_over.tscn")
+	#)
+
+
+
 
 # --- MOVEMENT HELPER FUNCTIONS ---
 
