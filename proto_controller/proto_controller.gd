@@ -6,7 +6,7 @@ extends CharacterBody3D
 @export var max_health: float = 100.0
 var current_health: float = 100.0
 var is_dead: bool = false
-@export var lava_damage_rate: float = 15.0 # Health lost per second in lava
+@export var lava_damage_rate: float = 5.0 # Health lost per second in lava
 
 ## --- MOVEMENT SETTINGS ---
 @export var can_move : bool = true
