@@ -1,7 +1,8 @@
-[gd_scene load_steps=12 format=4 uid="uid://tgy54mbwhwed"]
+[gd_scene load_steps=13 format=4 uid="uid://tgy54mbwhwed"]
 
 [ext_resource type="Texture2D" uid="uid://bl61vokupal5d" path="res://Imports/skull/stylized_skull_0.png" id="1_1bx6h"]
 [ext_resource type="Script" uid="uid://d8lwnrkdeafv" path="res://script/skull.gd" id="1_sco77"]
+[ext_resource type="AudioStream" uid="uid://be5ei456fx0b3" path="res://sound/demon_sound.mp3" id="3_pa1hf"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sco77"]
 albedo_color = Color(0, 0, 0, 1)
@@ -107,5 +108,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_pa1hf")
 transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, -0.5031738, 0.18822026)
 shape = SubResource("CapsuleShape3D_sco77")
 
-[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="."]
+[node name="scream" type="AudioStreamPlayer3D" parent="."]
 transform = Transform3D(1.6, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+stream = ExtResource("3_pa1hf")
+max_distance = 80.0

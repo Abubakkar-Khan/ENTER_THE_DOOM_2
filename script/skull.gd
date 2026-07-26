@@ -44,6 +44,9 @@ signal exploded(position: Vector3)
 
 @export var recover_duration: float = 1.6  # scatter time right after an attack pass
 
+@onready var scream: AudioStreamPlayer3D = $scream
+
+
 const GOLDEN_ANGLE: float = 2.39996323
 
 enum Phase { CALM, WARNING, ATTACK }   # must mirror Spawner.Phase (same order = same ints)
@@ -92,6 +95,9 @@ func _ready() -> void:
 	# before the Spawner gets a chance to call initialize().
 	if _noise == null:
 		_init_personality()
+	# Start the scream — AudioStreamPlayer3D handles distance fading automatically
+	if scream:
+		scream.play()
 
 ## Called once by the Spawner right after instancing.
 func initialize(swarm_spawner: Node, swarm_player: Node3D, slot: int, gap_frames: int) -> void:
