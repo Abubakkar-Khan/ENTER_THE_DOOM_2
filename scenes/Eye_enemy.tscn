@@ -10,14 +10,14 @@
 [sub_resource type="SphereShape3D" id="SphereShape3D_nfijb"]
 radius = 1.4305837
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fcjmc"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6gr6m"]
 albedo_color = Color(1, 0.11764706, 0, 1)
 emission_enabled = true
 emission = Color(1, 0, 0, 1)
 emission_energy_multiplier = 5.0
 
 [sub_resource type="BoxMesh" id="BoxMesh_us33h"]
-material = SubResource("StandardMaterial3D_fcjmc")
+material = SubResource("StandardMaterial3D_6gr6m")
 size = Vector3(0.3, 0.3, 0.3)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_72o42"]

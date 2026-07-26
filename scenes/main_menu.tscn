@@ -3,8 +3,8 @@
 [ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="1_bqqt6"]
 [ext_resource type="Script" uid="uid://cbtarbs7blsdn" path="res://script/menu_control.gd" id="2_oa1go"]
 [ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="2_wu84c"]
+[ext_resource type="Script" uid="uid://c6ey2i3oq8mmx" path="res://script/play_btn_menu.gd" id="3_jk1qb"]
 [ext_resource type="Texture2D" uid="uid://ca6ddt413ovwq" path="res://Texture/main.jpg" id="3_oa1go"]
-[ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="4_wu84c"]
 [ext_resource type="PackedScene" uid="uid://ch7kkvhnpnfwg" path="res://scenes/canvas_layer.tscn" id="5_8ln24"]
 [ext_resource type="Script" uid="uid://co8yja8fltdkm" path="res://script/quit_btn.gd" id="6_tbmy8"]
 [ext_resource type="AudioStream" uid="uid://b1uewmd6txm7k" path="res://sound/btn_hover.mp3" id="8_tbmy8"]
@@ -54,7 +54,7 @@ offset_left = 393.0
 offset_top = 395.0
 offset_right = 760.0
 offset_bottom = 476.0
-script = ExtResource("4_wu84c")
+script = ExtResource("3_jk1qb")
 
 [node name="Quit_btn" type="Button" parent="Menu_Control"]
 modulate = Color(1, 1, 1, 0)
@@ -83,3 +83,14 @@ color = Color(0.99999934, 0.12906384, 0.19087338, 1)
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource("8_tbmy8")
+
+[node name="DeathFade" type="ColorRect" parent="."]
+z_index = 15
+layout_mode = 0
+offset_left = -139.0
+offset_top = -240.0
+offset_right = 1556.0
+offset_bottom = 747.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+metadata/_edit_lock_ = true

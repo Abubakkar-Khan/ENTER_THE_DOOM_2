@@ -244,12 +244,15 @@ func _on_lava_2_body_entered(body: Node3D) -> void:
 		base_speed = 2.0
 		if not burning_sound.playing:
 			burning_sound.play()
+		if not scream_sound.playing:
+			scream_sound.play()
 
 func _on_lava_2_body_exited(body: Node3D) -> void:
 	if body == self:
 		is_in_lava = false
 		base_speed = 7.0
 		burning_sound.stop()
+		scream_sound.stop()
 
 func handle_footsteps():
 	if is_on_floor() and velocity.length() > 0.1:

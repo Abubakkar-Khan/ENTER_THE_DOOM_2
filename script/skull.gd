@@ -45,10 +45,12 @@ signal exploded(position: Vector3)
 
 @export var recover_duration: float = 1.6
 
-@export var scream_trigger_distance: float = 15.0
-@export var scream_reset_distance: float = 24.0
+@export var scream_trigger_distance: float = 60.0
+@export var scream_reset_distance: float = 90.0
 
 @onready var scream: AudioStreamPlayer3D = get_node_or_null("scream")
+@onready var death_particles: CPUParticles3D = $death_particles
+@onready var explosion_sound: AudioStreamPlayer2D = $explosion_sound
 
 const GOLDEN_ANGLE: float = 2.39996323
 
@@ -87,10 +89,18 @@ var _smoothed_flock: Vector3 = Vector3.ZERO
 func _ready() -> void:
 	motion_mode = MOTION_MODE_FLOATING
 	add_to_group("flying_skulls")
+
 	if player == null:
 		player = get_tree().get_first_node_in_group("player")
+
 	if _noise == null:
 		_init_personality()
+
+	# Configure scream sound
+	if scream:
+		scream.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED
+		scream.max_distance = 0.0    # 0 = no cutoff
+		scream.volume_db = -3.0      # adjust to taste
 
 	var anim := get_node_or_null("AnimationPlayer")
 	if anim and anim.has_animation("fly"):
@@ -346,36 +356,43 @@ func explode() -> void:
 		return
 	state = State.EXPLODING
 
+	# Notify spawner
 	if spawner and spawner.has_method("notify_skull_died"):
 		spawner.notify_skull_died(slot_index)
 
+	# Award score
 	if player and player.has_method("add_score"):
 		player.add_score(10)
 
+	# Explosion damage (if enabled)
 	if explosion_damage > 0.0 and player and global_position.distance_to(player.global_position) <= explosion_radius:
 		if player.has_method("take_damage"):
 			player.take_damage(explosion_damage)
 		elif player.has_method("apply_damage"):
 			player.apply_damage(explosion_damage)
 
+	# Hide meshes
 	if has_node("Sketchfab_Scene"):
 		$Sketchfab_Scene.visible = false
 	if has_node("MeshInstance3D"):
 		$MeshInstance3D.visible = false
 
-	var particles := get_node_or_null("death_particles")
-	if particles is CPUParticles3D:
-		particles.emitting = true
+	# Play death particles
+	if death_particles and not death_particles.emitting:
+		death_particles.emitting = true
 
-	var snd := get_node_or_null("explosion_sound")
-	if snd:
-		snd.play()
+	# Play explosion sound
+	if explosion_sound and not explosion_sound.playing:
+		explosion_sound.play()
 
+	# Disable all collision shapes
 	for shape in find_children("*", "CollisionShape3D"):
 		shape.set_deferred("disabled", true)
 
+	# Stop physics
 	set_physics_process(false)
 	emit_signal("exploded", global_position)
 
-	await get_tree().create_timer(1.0).timeout
+	# Wait then free
+	await get_tree().create_timer(2.0).timeout
 	queue_free()

@@ -18,22 +18,22 @@ extends Node3D
 @export var chain_gap_frames: int = 5
 
 # ─── Wave spawning — groups arrive together, staggered, not a trickle ───
-@export var wave_min_size: int = 4
-@export var wave_max_size: int = 7
-@export var wave_interval_min: float = 6.0
-@export var wave_interval_max: float = 10.0
+@export var wave_min_size: int = 8
+@export var wave_max_size: int = 18
+@export var wave_interval_min: float = 5.0
+@export var wave_interval_max: float = 8.0
 @export var wave_spawn_stagger: float = 0.25   # seconds between individual spawns within a wave
 
 # ─── Calm phase: organic wandering, never stops ───
-@export var calm_wander_speed: float = 0.12
+@export var calm_wander_speed: float = 1.12
 @export var calm_wander_scale: float = 30.0
-@export var calm_duration_min: float = 8.0
-@export var calm_duration_max: float = 13.0
+@export var calm_duration_min: float = 2.0
+@export var calm_duration_max: float = 5.0
 
 # ─── Warning phase: the flock rushes into formation ───
 @export var warning_duration: float = 2.4
-@export var formation_distance_from_player: float = 32.0
-@export var formation_radius: float = 9.0
+@export var formation_distance_from_player: float = 35.0
+@export var formation_radius: float = 10.0
 @export var formation_flatten: float = 0.5   # <1 flattens into a wing shape
 
 # ─── Attack campaign: repeated dive + climb passes, up to ~30s ───
