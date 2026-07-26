@@ -48,11 +48,14 @@ func _on_pressed():
 	print("PRESSED PLAY")
 	
 	# Use inspector path, or fallback to default if empty
-	var target_scene = game_scene_path if game_scene_path != "" else "res://scenes/TerrainController.tscn"
+	var target_scene = "res://scenes/TerrainController.tscn"
 	
 	# SAFETY CHECK: Don't fade to black if the scene doesn't exist
 	if not ResourceLoader.exists(target_scene):
 		print("ERROR: Scene does not exist at '", target_scene, "'. Check your Inspector!")
+		
+		
+		
 		_is_fading = false
 		return
 

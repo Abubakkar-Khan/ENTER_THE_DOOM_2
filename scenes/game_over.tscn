@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://boe3eorjjqkq4" path="res://Texture/gameover2.jpg" id="1_fkf4o"]
 [ext_resource type="Script" uid="uid://cq42sws7o6ijf" path="res://script/game_over_control.gd" id="2_3u7xm"]
-[ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="3_woa3c"]
+[ext_resource type="Script" uid="uid://c6ey2i3oq8mmx" path="res://script/play_btn_menu.gd" id="3_8bugq"]
 [ext_resource type="Script" uid="uid://cvx5lfwc5b1w7" path="res://script/menu_btn.gd" id="4_dd2jf"]
 [ext_resource type="FontFile" uid="uid://7wtnp7x7c2f8" path="res://font/Norse.otf" id="5_ku74v"]
 [ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="6_nm4t2"]
@@ -63,7 +63,7 @@ offset_right = 753.0
 offset_bottom = 508.0
 theme_override_colors/icon_normal_color = Color(0, 0, 0, 1)
 theme_override_colors/icon_hover_pressed_color = Color(1.0510405, 0.9276329, 1.0415477, 1)
-script = ExtResource("3_woa3c")
+script = ExtResource("3_8bugq")
 
 [node name="menu_btn" type="Button" parent="Game_Over_Control"]
 modulate = Color(1, 1, 1, 0)
@@ -121,3 +121,14 @@ stream = ExtResource("8_kjrwi")
 [node name="bg" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("9_8bugq")
 autoplay = true
+
+[node name="DeathFade" type="ColorRect" parent="."]
+z_index = 15
+layout_mode = 0
+offset_left = -139.0
+offset_top = -240.0
+offset_right = 1556.0
+offset_bottom = 747.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+metadata/_edit_lock_ = true
