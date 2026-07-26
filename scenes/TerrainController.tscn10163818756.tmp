@@ -209,6 +209,24 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.739075, 4.944)
 script = ExtResource("8_ytahn")
 skull_scene = ExtResource("14_jvcpg")
 max_skulls = 30
+spawn_interval = null
+chain_gap_frames = null
+calm_wander_speed = null
+calm_wander_scale = null
+calm_duration_min = null
+calm_duration_max = null
+warning_duration = null
+formation_distance_from_player = null
+formation_radius = null
+formation_flatten = null
+attack_campaign_duration_min = null
+attack_campaign_duration_max = null
+pass_dive_duration = null
+pass_climb_duration = null
+high_altitude = null
+dive_curve_amount = null
+attack_formation_radius = null
+attack_homing = null
 
 [node name="Node3D" type="Node3D" parent="."]
 

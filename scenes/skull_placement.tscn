@@ -68,8 +68,6 @@ metadata/_stencil_owned = true
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nabct"]
 next_pass = SubResource("StandardMaterial3D_1bx6h")
 albedo_texture = ExtResource("1_2iq6o")
-albedo_texture_force_srgb = true
-metallic = 0.49
 roughness = 0.32
 emission_operator = 1
 stencil_mode = 1
@@ -85,6 +83,7 @@ transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(0.75917226, 0, 0, 0, 0.04012902, -0.5808964, 0, 1.0474465, 0.022254892, -0.03129697, 0.17760873, 0.86382985)
+visible = false
 mesh = SubResource("PlaneMesh_td148")
 
 [node name="Sketchfab_Scene" type="Node3D" parent="."]

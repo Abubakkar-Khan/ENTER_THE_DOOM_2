@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Enter_the_doom_FINAL"
-run/main_scene="uid://bl4p50ecoftu7"
+run/main_scene="uid://cdmtkskh87dg6"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="uid://xr0inskyh7x"
 run/name="3D_terrain - FINAL"

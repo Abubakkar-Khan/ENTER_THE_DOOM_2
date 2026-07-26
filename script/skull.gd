@@ -5,19 +5,21 @@ extends CharacterBody3D
 ##   majestic — low turn rate, wide gentle banking, no per-frame jitter.
 ## WARNING: the whole flock rushes into a formation shape around the
 ##   leader, at a set distance out in front of the player.
-## ATTACK: trails the leader's recent path exactly, like a tight, disciplined
-##   serpent body — high turn rate, shallow bank, no wobble. Longer, farther,
-##   faster than the calm phase so it reads as a real committed strike.
-## After an ATTACK ends: scatters outward briefly, then drifts back into
-##   its calm orbit on its own.
+## ATTACK: the leader now runs a whole dive+climb campaign (see Spawner),
+##   and each skull trails the leader's path *plus* a formation offset —
+##   a wing spread, not a single line. Skulls near the center of the wing
+##   pass through the player and hit; skulls further out whoosh past. High
+##   turn rate, shallow bank — tight and controlled, not floaty.
+## After an ATTACK campaign ends: scatters outward briefly, then drifts
+##   back into its calm orbit on its own.
 
 signal exploded(position: Vector3)
 
 @export var health: float = 1.0
-@export var attack_range: float = 2.0
-@export var touch_damage: float = 5.0
+@export var attack_range: float = 5
+@export var touch_damage: float = 10.0
 @export var explosion_radius: float = 2.0
-@export var explosion_damage: float = 5.0
+@export var explosion_damage: float = 0.0   # touch already deals damage; splash is separate/optional
 
 @export var calm_speed: float = 16.0
 @export var warning_speed: float = 95.0     # extremely fast formation rush-in
@@ -25,8 +27,7 @@ signal exploded(position: Vector3)
 @export var recover_speed: float = 30.0
 
 # Turn/bank response is phase-based: slow and graceful while wandering,
-# snappy and locked-in while gathering/attacking. This split is most of
-# what makes CALM read as "majestic" and ATTACK read as "tight".
+# snappy and locked-in while gathering/attacking.
 @export var turn_speed_calm: float = 2.2
 @export var turn_speed_attack: float = 11.0
 @export var max_bank_calm: float = 0.9       # radians — wide, graceful lean while wandering
@@ -40,12 +41,7 @@ signal exploded(position: Vector3)
 @export var cohesion_strength: float = 1.8
 @export var alignment_strength: float = 1.3
 
-@export var chain_wave_amplitude: float = 0.0  # sideways ripple while trailing in ATTACK (0 = tight/off)
-
-@export var recover_duration: float = 1.6  # scatter time right after an attack pass
-
-@onready var scream: AudioStreamPlayer3D = $scream
-
+@export var recover_duration: float = 1.6  # scatter time right after a campaign ends
 
 const GOLDEN_ANGLE: float = 2.39996323
 
@@ -58,9 +54,6 @@ var player: Node3D = null
 var slot_index: int = -1
 var chain_gap_frames: int = 5
 
-# Per-skull calm-orbit personality, derived once from slot_index. Radius/
-# speed/phase still vary skull-to-skull, but the motion itself is now
-# noise-driven rather than pure sine, so it never repeats exactly.
 var _ring_radius: float
 var _ring_speed: float
 var _ring_phase: float
@@ -69,9 +62,6 @@ var _altitude_speed: float
 var _altitude_phase: float
 var _calm_time: float = 0.0
 
-# Per-skull noise generator + individual variance, so 18 skulls don't read
-# as 18 copies of the same script running with a phase offset. Variance is
-# kept tight (small ranges below) so individuality doesn't read as shake.
 var _noise: FastNoiseLite
 var _drift_offset: float
 var _turn_indiv_factor: float
@@ -89,15 +79,14 @@ func _ready() -> void:
 	add_to_group("flying_skulls")
 	if player == null:
 		player = get_tree().get_first_node_in_group("player")
-	# Guarantees _noise and the rest of the per-skull personality exist even
-	# if initialize() hasn't run yet (or never runs, e.g. a Skull placed
-	# directly in a test scene) — _physics_process can otherwise fire
-	# before the Spawner gets a chance to call initialize().
 	if _noise == null:
 		_init_personality()
-	# Start the scream — AudioStreamPlayer3D handles distance fading automatically
-	if scream:
-		scream.play()
+
+	# Optional wing-flap hook: if the model has an AnimationPlayer with a
+	# "fly" animation, loop it. Safe no-op if it doesn't exist.
+	var anim := get_node_or_null("AnimationPlayer")
+	if anim and anim.has_animation("fly"):
+		anim.play("fly")
 
 ## Called once by the Spawner right after instancing.
 func initialize(swarm_spawner: Node, swarm_player: Node3D, slot: int, gap_frames: int) -> void:
@@ -109,22 +98,18 @@ func initialize(swarm_spawner: Node, swarm_player: Node3D, slot: int, gap_frames
 
 func _init_personality() -> void:
 	var s: float = float(slot_index)
-	_ring_radius = 9.0 + fmod(s * 3.3, 9.0)             # ~9..18
-	_ring_speed = 0.12 + fmod(s * 0.05, 0.12)            # slow, majestic base orbit rate
+	_ring_radius = 9.0 + fmod(s * 3.3, 9.0)
+	_ring_speed = 0.12 + fmod(s * 0.05, 0.12)
 	_ring_phase = s * GOLDEN_ANGLE
-	_altitude_amp = 2.0 + fmod(s * 1.7, 3.5)             # ~2..5.5
+	_altitude_amp = 2.0 + fmod(s * 1.7, 3.5)
 	_altitude_speed = 0.22 + fmod(s * 0.045, 0.2)
 	_altitude_phase = s * GOLDEN_ANGLE * 1.5
 
-	# Deterministic-but-unique seed per skull — same skull always moves the
-	# same way across a run, but no two skulls share a noise field.
 	_noise = FastNoiseLite.new()
 	_noise.seed = slot_index * 977 + 13
 	_noise.frequency = 1.0
 
 	_drift_offset = s * GOLDEN_ANGLE * 3.0
-	# Tight variance ranges on purpose — enough to avoid a "carbon copy"
-	# look, not enough to read as randomness/shake.
 	_turn_indiv_factor = 0.94 + fmod(s * 0.14, 0.12)
 	_bank_indiv_factor = 0.92 + fmod(s * 0.11, 0.16)
 
@@ -137,11 +122,6 @@ func _physics_process(delta: float) -> void:
 		if player == null:
 			return
 
-	if global_position.distance_to(player.global_position) <= attack_range:
-		_touch_player()
-		explode()
-		return
-
 	_calm_time += delta
 	_track_phase_change(delta)
 
@@ -153,7 +133,12 @@ func _physics_process(delta: float) -> void:
 	steer += _flock_forces()
 
 	velocity = velocity.lerp(steer, turn_rate * delta)
+
+	var prev_pos: Vector3 = global_position
 	move_and_slide()
+
+	if _check_player_touch(prev_pos):
+		return
 
 	for i in range(get_slide_collision_count()):
 		if get_slide_collision(i).get_collider() == player:
@@ -162,6 +147,25 @@ func _physics_process(delta: float) -> void:
 			return
 
 	_update_rotation(delta, turn_rate)
+
+## Closest-point-on-segment check between last frame's position and this
+## frame's. A plain distance check on the current frame alone lets a fast
+## dive tunnel straight past the player without ever registering a hit —
+## this catches it even if the skull crosses the whole gap in one frame.
+func _check_player_touch(prev_pos: Vector3) -> bool:
+	var seg: Vector3 = global_position - prev_pos
+	var closest: Vector3
+	if seg.length_squared() > 0.0001:
+		var t: float = clamp((player.global_position - prev_pos).dot(seg) / seg.length_squared(), 0.0, 1.0)
+		closest = prev_pos + seg * t
+	else:
+		closest = global_position
+
+	if closest.distance_to(player.global_position) <= attack_range:
+		_touch_player()
+		explode()
+		return true
+	return false
 
 func _touch_player() -> void:
 	if player == null:
@@ -203,27 +207,19 @@ func _current_target() -> Vector3:
 
 	if spawner.phase == Phase.WARNING:
 		# Rush into a formation slot around the leader, at a set distance
-		# out from the player — this is the "gather up fast" moment.
-		return spawner.leader_pos + spawner.get_formation_offset(slot_index)
+		# out from the player — the "gather up fast" moment.
+		return spawner.leader_pos + spawner.get_formation_offset(slot_index, spawner.formation_radius)
 
-	# ATTACK: trail the leader exactly, like a tight, disciplined body.
-	# (chain_wave_amplitude defaults to 0 — set it above 0 if you want a
-	# subtle sideways ripple back; kept tight/off by default on purpose.)
+	# ATTACK: trail the leader's dive path like a segment of a serpent's
+	# body, spread into a wing formation. Skulls near the center of the
+	# wing pass through the player and hit; ones further out whoosh past —
+	# that's what makes it read as a flock, not a single-file line, and
+	# gives the "some hit, not all" feel on purpose.
 	var delay_frames: int = slot_index * chain_gap_frames
 	var base_pos: Vector3 = spawner.get_history_position(delay_frames)
-	if chain_wave_amplitude > 0.001:
-		var ahead_pos: Vector3 = spawner.get_history_position(max(delay_frames - 1, 0))
-		var travel_dir: Vector3 = ahead_pos - base_pos
-		if travel_dir.length() > 0.01:
-			var side: Vector3 = travel_dir.normalized().cross(Vector3.UP)
-			var wave: float = _noise.get_noise_1d(_calm_time * 1.5)
-			return base_pos + side * wave * chain_wave_amplitude
-	return base_pos
+	return base_pos + spawner.get_formation_offset(slot_index, spawner.attack_formation_radius)
 
 func _calm_target() -> Vector3:
-	# Angular *rate* drifts slowly via noise (always positive) instead of
-	# jittering the angle directly — this keeps travel direction perfectly
-	# smooth (no shake) while still not being a fixed-speed carousel.
 	var drift: float = 1.0 + _noise.get_noise_1d(_calm_time * 0.05 + _drift_offset) * 0.2
 	var angle: float = _calm_time * _ring_speed * drift + _ring_phase
 	var radius: float = _ring_radius * (1.0 + _noise.get_noise_1d(_calm_time * 0.04 + 50.0) * 0.12)
@@ -273,9 +269,6 @@ func _flock_forces() -> Vector3:
 
 	var force: Vector3 = separation_sum * separation_strength
 
-	# Cohesion/alignment only really drive things in CALM. During
-	# WARNING/ATTACK the formation offsets and chain-follow already give
-	# structure — full boid pull there would fight the snap into shape.
 	if neighbor_count > 0 and (spawner == null or spawner.phase == Phase.CALM):
 		var to_center: Vector3 = (cohesion_sum / neighbor_count) - global_position
 		if to_center.length() > 0.01:
@@ -299,10 +292,6 @@ func _update_rotation(delta: float, turn_rate: float) -> void:
 		bank_limit = max_bank_attack
 	bank_limit *= _bank_indiv_factor
 
-	# Bank into turns like a bird/dragon wing tilt — lower multiplier and
-	# slower roll-lerp than before so small direction changes don't cause
-	# the bank to flip back and forth (that flip-flopping is what reads as
-	# "shaking").
 	var flat_dir: Vector3 = Vector3(face_dir.x, 0.0, face_dir.z)
 	if flat_dir.length() > 0.01 and _prev_flat_dir.length() > 0.01:
 		flat_dir = flat_dir.normalized()
@@ -331,7 +320,7 @@ func explode() -> void:
 	if player and player.has_method("add_score"):
 		player.add_score(10)
 
-	if player and global_position.distance_to(player.global_position) <= explosion_radius:
+	if explosion_damage > 0.0 and player and global_position.distance_to(player.global_position) <= explosion_radius:
 		if player.has_method("take_damage"):
 			player.take_damage(explosion_damage)
 		elif player.has_method("apply_damage"):
@@ -358,3 +347,4 @@ func explode() -> void:
 
 	await get_tree().create_timer(1.0).timeout
 	queue_free()
+	
