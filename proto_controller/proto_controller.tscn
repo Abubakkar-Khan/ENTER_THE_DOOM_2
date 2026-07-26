@@ -1,8 +1,8 @@
 [gd_scene load_steps=18 format=3 uid="uid://bs72ogkvdd7d6"]
 
 [ext_resource type="Script" uid="uid://bhssvw3ifyk6q" path="res://proto_controller/proto_controller.gd" id="1_ucva2"]
+[ext_resource type="AudioStream" uid="uid://com6uftvbbonu" path="res://sound/boss.mp3" id="3_dqxa2"]
 [ext_resource type="PackedScene" uid="uid://05y61xytw5oc" path="res://scenes/gun_robot.tscn" id="3_osm61"]
-[ext_resource type="AudioStream" uid="uid://k06sebgqxta1" path="res://sound/27. Lazarus Waves.mp3" id="3_ttl1e"]
 [ext_resource type="AudioStream" uid="uid://cnstxsj2jqa7f" path="res://sound/running-on-the-floor-359909.mp3" id="4_ttl1e"]
 [ext_resource type="AudioStream" uid="uid://buwdw4d4p6ovo" path="res://sound/man-scream-08-352438.mp3" id="5_o2250"]
 [ext_resource type="AudioStream" uid="uid://d4bkvga05ibos" path="res://sound/campfire-burning-wood-ambience-hd-375866.mp3" id="6_dloki"]
@@ -50,6 +50,7 @@ input_forward = "move_forward"
 input_back = "move_backward"
 
 [node name="Mesh" type="MeshInstance3D" parent="."]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 visible = false
 material_override = SubResource("StandardMaterial3D_iof21")
@@ -57,15 +58,19 @@ cast_shadow = 0
 mesh = SubResource("CapsuleMesh_ucva2")
 
 [node name="Collider" type="CollisionShape3D" parent="."]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 shape = SubResource("CapsuleShape3D_iof21")
 
 [node name="Head" type="Node3D" parent="."]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
 
 [node name="Camera3D" type="Camera3D" parent="Head"]
+process_mode = 1
 
 [node name="SpotLight3D" type="SpotLight3D" parent="Head/Camera3D"]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.10252404)
 light_color = Color(0.98039216, 0.1882353, 0, 1)
 light_energy = 10.0
@@ -74,26 +79,32 @@ spot_angle = 52.5
 spot_angle_attenuation = 1.8024994
 
 [node name="Gun_Robot2" parent="Head/Camera3D" instance=ExtResource("3_osm61")]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.06837851, -0.04188013, -0.044721015)
 
 [node name="bg_music" type="AudioStreamPlayer3D" parent="." groups=["player"]]
-stream = ExtResource("3_ttl1e")
+process_mode = 1
+stream = ExtResource("3_dqxa2")
 volume_db = -10.0
 autoplay = true
 
 [node name="run_sound" type="AudioStreamPlayer3D" parent="."]
+process_mode = 1
 stream = ExtResource("4_ttl1e")
 volume_db = -20.0
 
 [node name="scream_sound" type="AudioStreamPlayer3D" parent="."]
+process_mode = 1
 stream = ExtResource("5_o2250")
 volume_db = 32.0
 max_db = 6.0
 
 [node name="burning_sound" type="AudioStreamPlayer3D" parent="."]
+process_mode = 1
 stream = ExtResource("6_dloki")
 
 [node name="eye_HealthBar" parent="." instance=ExtResource("9_g44rw")]
+process_mode = 1
 z_index = 12
 z_as_relative = false
 offset_left = 179.0
@@ -102,6 +113,7 @@ offset_right = 520.0
 offset_bottom = 144.0
 
 [node name="HealthBar" parent="." instance=ExtResource("9_g44rw")]
+process_mode = 1
 layout_direction = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -114,14 +126,17 @@ grow_vertical = 0
 metadata/_edit_lock_ = true
 
 [node name="Timer" type="Timer" parent="."]
+process_mode = 1
 wait_time = 300.0
 one_shot = true
 autostart = true
 
 [node name="HUD" type="CanvasLayer" parent="."]
+process_mode = 1
 script = ExtResource("8_dqxa2")
 
 [node name="hud" type="TextureRect" parent="HUD"]
+process_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -133,6 +148,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="cross_hair" type="CenterContainer" parent="HUD"]
+process_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -146,6 +162,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="TextureRect" type="TextureRect" parent="HUD/cross_hair"]
+process_mode = 1
 modulate = Color(0.3307292, 0.15589058, 0.15589058, 1)
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
@@ -154,6 +171,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="DeathFade" type="ColorRect" parent="HUD"]
+process_mode = 1
 z_index = 15
 offset_left = -139.0
 offset_top = -240.0
@@ -163,7 +181,20 @@ mouse_filter = 2
 color = Color(0, 0, 0, 0)
 metadata/_edit_lock_ = true
 
+[node name="Score_Label" type="Label" parent="HUD"]
+process_mode = 1
+offset_left = 165.0
+offset_top = 83.0
+offset_right = 270.0
+offset_bottom = 150.0
+theme_override_colors/font_color = Color(0.7490196, 0.043137256, 0.015686275, 1)
+theme_override_fonts/font = ExtResource("10_8k16y")
+theme_override_font_sizes/font_size = 32
+text = "00"
+horizontal_alignment = 1
+
 [node name="Timer_Label" type="Label" parent="HUD"]
+process_mode = 1
 offset_left = 896.0
 offset_top = 69.0
 offset_right = 996.0
@@ -174,16 +205,17 @@ theme_override_font_sizes/font_size = 32
 text = "test"
 horizontal_alignment = 1
 
-[node name="Score_Label" type="Label" parent="HUD"]
-offset_left = 165.0
-offset_top = 83.0
-offset_right = 270.0
-offset_bottom = 150.0
-theme_override_colors/font_color = Color(0.7490196, 0.043137256, 0.015686275, 1)
-theme_override_fonts/font = ExtResource("10_8k16y")
-theme_override_font_sizes/font_size = 32
-text = "00"
-horizontal_alignment = 1
+[node name="filter" type="ColorRect" parent="HUD"]
+process_mode = 1
+visible = false
+z_index = 100
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.6153918, 0, 0, 1)
 
 [node name="CPUParticles3D" type="CPUParticles3D" parent="."]
 cast_shadow = 0

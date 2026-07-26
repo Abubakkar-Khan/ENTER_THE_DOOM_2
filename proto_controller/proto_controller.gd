@@ -63,11 +63,15 @@ var score := 0
 @onready var timer_label: Label = $HUD/Timer_Label
 @onready var camera: Camera3D = $Head/Camera3D
 
+@onready var filter: ColorRect = $HUD/filter
+
 func _ready() -> void:
 	current_health = max_health
 	check_input_mappings()
 	capture_mouse() # Start with mouse captured so we can move immediately
 	health_bar.init_health(current_health)
+	
+	#filter.visible = false
 	
 	look_rotation.y = rotation.y
 	look_rotation.x = head.rotation.x
@@ -106,14 +110,18 @@ func _physics_process(delta: float) -> void:
 	timer_label.text = "%02d:%02d" % [minutes, seconds]
 
 func take_damage(amount: float):
-	if is_dead: return
+	if is_dead: 
+		return
 	
 	current_health -= amount
 	print("Health: ", int(current_health))
 	health_bar.health = current_health
 	
-	# ADD THIS LINE:
-	shake_camera(0.15, 0.25)
+	# Screen shake
+	shake_camera(0.30, 0.25)
+	
+	# Damage filter flash (visible to invisible)
+	flash_damage_filter(0.35, 0.25)
 	
 	if current_health <= 0:
 		die()
@@ -299,3 +307,24 @@ func shake_camera(amount: float = 0.15, duration: float = 0.2) -> void:
 		tween.tween_property(camera, "position", offset, step_time)
 	
 	tween.tween_property(camera, "position", Vector3.ZERO, step_time)
+	
+func flash_damage_filter(alpha: float = 0.35, duration: float = 0.25) -> void:
+	if not filter:
+		return
+	
+	# 1. Enable the filter so it renders
+	filter.visible = true
+	
+	# 2. Set the flash color (keeps your Inspector color, just changes transparency)
+	var flash_color := filter.color
+	flash_color.a = alpha
+	filter.color = flash_color
+	
+	# 3. Tween the alpha back to 0.0 (invisible)
+	var tween := create_tween()
+	tween.tween_property(filter, "color:a", 0.0, duration)
+	
+	# 4. Disable the filter completely when the flash is done
+	tween.tween_callback(func():
+		filter.visible = false
+	)

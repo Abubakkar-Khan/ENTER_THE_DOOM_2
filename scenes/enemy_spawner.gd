@@ -25,7 +25,7 @@ extends Node3D
 ## in WARNING/ATTACK so the path never reads as a perfectly smooth spline.
 
 @export var skull_scene: PackedScene
-@export var max_skulls: int = 15          # the "flock" — wing formation, dive campaigns
+@export var max_skulls: int = 30          # the "flock" — wing formation, dive campaigns
 @export var player: Node3D
 @export var chain_gap_frames: int = 5
 

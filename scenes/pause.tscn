@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dly78c6g7qwht"]
+[gd_scene load_steps=13 format=3 uid="uid://dly78c6g7qwht"]
 
 [ext_resource type="Texture2D" uid="uid://cxxyw7aqrtpko" path="res://Texture/pause.jpg" id="1_r8yp4"]
 [ext_resource type="Script" uid="uid://dy5lo6xcogluf" path="res://script/pause_control.gd" id="2_aicil"]
@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://c5x4gwjlqtjhy" path="res://Texture/[CITYPNG.COM]Download Red Circle PNG - 50x50.png" id="7_cml1b"]
 [ext_resource type="Shader" uid="uid://d1k34wibierfw" path="res://shader/sin_city_infernal.gdshader" id="8_cml1b"]
 [ext_resource type="AudioStream" uid="uid://b1uewmd6txm7k" path="res://sound/btn_hover.mp3" id="9_1xtef"]
+[ext_resource type="AudioStream" uid="uid://k06sebgqxta1" path="res://sound/27. Lazarus Waves.mp3" id="10_xmhi0"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1xtef"]
 shader = ExtResource("6_wen6a")
@@ -121,3 +122,7 @@ mouse_filter = 2
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource("9_1xtef")
+
+[node name="bg" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_xmhi0")
+autoplay = true

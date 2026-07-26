@@ -205,10 +205,10 @@ physics_material_override = SubResource("PhysicsMaterial_wcwec")
 shape = SubResource("ConcavePolygonShape3D_tjve5")
 
 [node name="EnemySpawner" type="Node3D" parent="NavigationRegion3D"]
+process_mode = 1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.739075, 4.944)
 script = ExtResource("8_ytahn")
 skull_scene = ExtResource("14_jvcpg")
-max_skulls = 30
 
 [node name="Node3D" type="Node3D" parent="."]
 

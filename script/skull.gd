@@ -28,7 +28,7 @@ signal exploded(position: Vector3)
 
 @export var health: float = 1.0
 @export var attack_range: float = 5
-@export var touch_damage: float = 5.0
+@export var touch_damage: float = 2.0
 @export var explosion_radius: float = 2.0
 @export var explosion_damage: float = 0.0   # touch already deals damage; splash is separate/optional
 
@@ -77,8 +77,8 @@ signal exploded(position: Vector3)
 @export var near_miss_min: float = 0.5
 @export var near_miss_max: float = 2.2
 
-@export var scream_trigger_distance: float = 60.0
-@export var scream_reset_distance: float = 90.0
+@export var scream_trigger_distance: float = 35.0
+@export var scream_reset_distance: float = 80.0
 
 # ─── Solo mode — an alternative to the flock/formation behavior above.
 ## A solo skull ignores the leader entirely. It's spawned far out by the
