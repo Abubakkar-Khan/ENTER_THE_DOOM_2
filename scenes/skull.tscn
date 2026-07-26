@@ -60,7 +60,7 @@ render_priority = 1
 next_pass = SubResource("ShaderMaterial_sco77")
 transparency = 1
 shading_mode = 0
-albedo_color = Color(0.7, 0, 0, 1)
+albedo_color = Color(0, 0, 0, 1)
 grow = true
 grow_amount = 0.104
 stencil_mode = 3
@@ -77,7 +77,6 @@ roughness = 0.32
 emission_operator = 1
 stencil_mode = 1
 stencil_flags = 2
-stencil_color = Color(0.7, 0, 0, 1)
 stencil_outline_thickness = 0.104
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_sco77"]
