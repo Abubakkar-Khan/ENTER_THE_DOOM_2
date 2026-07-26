@@ -16,9 +16,9 @@ extends CharacterBody3D
 signal exploded(position: Vector3)
 
 @export var health: float = 1.0
-@export var attack_range: float = 2.0
-@export var explosion_radius: float = 2.0
-@export var explosion_damage: float = 25.0
+@export var attack_range: float = 4.0
+@export var explosion_radius: float = 4.0
+@export var explosion_damage: float = 15.0
 
 @export var calm_speed: float = 16.0
 @export var warning_speed: float = 78.0     # extremely fast formation rush-in
@@ -117,35 +117,36 @@ func _init_personality() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.EXPLODING:
 		return
-
 	if player == null:
 		player = get_tree().get_first_node_in_group("player")
 		if player == null:
 			return
-
 	if global_position.distance_to(player.global_position) <= attack_range:
+		print("touch check RANDOM player")
+		_touch_player()
 		explode()
 		return
-
 	_calm_time += delta
 	_track_phase_change(delta)
-
 	var target: Vector3 = _current_target()
 	var speed: float = _current_speed()
-
 	var steer: Vector3 = (target - global_position).normalized() * speed
 	steer += _flock_forces()
-
 	velocity = velocity.lerp(steer, _turn_speed_indiv * delta)
 	move_and_slide()
-
 	for i in range(get_slide_collision_count()):
 		if get_slide_collision(i).get_collider() == player:
+			_touch_player()
 			explode()
 			return
-
 	_update_rotation(delta)
 
+func _touch_player() -> void:
+	if player.has_method("take_damage"):
+		player.take_damage(10.0)
+	elif player.has_method("apply_damage"):
+		player.apply_damage(10.0)
+		
 func _track_phase_change(delta: float) -> void:
 	if _recover_timer > 0.0:
 		_recover_timer -= delta

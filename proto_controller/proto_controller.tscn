@@ -35,7 +35,7 @@ grow = true
 material = SubResource("StandardMaterial3D_ti3r5")
 size = Vector3(0.1, 0.1, 0.1)
 
-[node name="ProtoController" type="CharacterBody3D"]
+[node name="ProtoController" type="CharacterBody3D" groups=["player"]]
 script = ExtResource("1_ucva2")
 can_sprint = true
 can_freefly = true
