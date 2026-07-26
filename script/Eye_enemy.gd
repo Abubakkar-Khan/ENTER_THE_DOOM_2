@@ -3,8 +3,8 @@ extends CharacterBody3D
 signal zombie_died 
 
 @export var health: float = 3 # Faster for intense action
-@export var movement_speed: float = 5.5 # Faster for intense action
-@export var attack_range: float = 2.5   # Tighter range for better combat feel
+@export var movement_speed: float = 0.0 # Faster for intense action
+@export var attack_range: float = 100   # Tighter range for better combat feel
 
 @onready var anim_player: AnimationPlayer = $Sketchfab_Scene/AnimationPlayer
 @onready var nav_agent: NavigationAgent3D = $NavigationAgent3D

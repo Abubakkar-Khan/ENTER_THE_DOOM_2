@@ -76,7 +76,7 @@ spot_angle_attenuation = 1.8024994
 [node name="Gun_Robot2" parent="Head/Camera3D" instance=ExtResource("3_osm61")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.06837851, -0.04188013, -0.044721015)
 
-[node name="bg_music" type="AudioStreamPlayer3D" parent="."]
+[node name="bg_music" type="AudioStreamPlayer3D" parent="." groups=["player"]]
 stream = ExtResource("3_ttl1e")
 volume_db = -10.0
 autoplay = true

@@ -64,6 +64,7 @@ shader_parameter/brightness_boost = 1.1
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="ColorRect3" type="ColorRect" parent="."]
+visible = false
 material = SubResource("ShaderMaterial_mg525")
 anchors_preset = 15
 anchor_right = 1.0

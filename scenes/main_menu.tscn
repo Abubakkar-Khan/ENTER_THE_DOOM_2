@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://cdmtkskh87dg6"]
+[gd_scene load_steps=10 format=3 uid="uid://cdmtkskh87dg6"]
 
 [ext_resource type="Shader" uid="uid://bbyasyxwqf2de" path="res://shader/partile_shader.gdshader" id="1_bqqt6"]
 [ext_resource type="Script" uid="uid://cbtarbs7blsdn" path="res://script/menu_control.gd" id="2_oa1go"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://uwals64v3kcb" path="res://script/play_btn.gd" id="4_wu84c"]
 [ext_resource type="PackedScene" uid="uid://ch7kkvhnpnfwg" path="res://scenes/canvas_layer.tscn" id="5_8ln24"]
 [ext_resource type="Script" uid="uid://co8yja8fltdkm" path="res://script/quit_btn.gd" id="6_tbmy8"]
+[ext_resource type="AudioStream" uid="uid://b1uewmd6txm7k" path="res://sound/btn_hover.mp3" id="8_tbmy8"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_rtw2f"]
 shader = ExtResource("1_bqqt6")
@@ -79,3 +80,6 @@ gravity = Vector2(0, -50)
 scale_amount_min = 0.2
 scale_amount_max = 0.2
 color = Color(0.99999934, 0.12906384, 0.19087338, 1)
+
+[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("8_tbmy8")

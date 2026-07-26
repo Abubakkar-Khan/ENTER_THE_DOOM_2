@@ -7,6 +7,8 @@ extends Control
 @onready var score_label: Label = $ScoreLabel
 @onready var time_label: Label = $TimeLabel
 
+@onready var hover_sfx: AudioStreamPlayer2D = $"../AudioStreamPlayer2D"
+
 const DESIGN_SIZE: Vector2 = Vector2(1920.0, 1080.0)
 
 const PLAY_POS: Vector2 = Vector2(955.0, 800.0)
@@ -21,6 +23,13 @@ func _ready() -> void:
 
 	score_label.text = str(GameData.score)
 	time_label.text = str(int(GameData.survival_time)) + " s"
+
+	# --- ADDED: Connect Hover and Click signals for both buttons ---
+	play.mouse_entered.connect(_play_hover_sound)
+	menu.mouse_entered.connect(_play_hover_sound)
+
+	play.pressed.connect(_play_click_sound)
+	menu.pressed.connect(_play_click_sound)
 
 func update_layout() -> void:
 	var ui_scale: float = minf(
@@ -58,3 +67,10 @@ func layout_label(lbl: Label, pos: Vector2, ui_scale: float) -> void:
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	lbl.add_theme_font_size_override("font_size", int(48 * ui_scale))
+
+# --- ADDED: Sound functions ---
+func _play_hover_sound() -> void:
+	hover_sfx.play()
+
+func _play_click_sound() -> void:
+	hover_sfx.play()

@@ -84,7 +84,27 @@ height = 1.3374023
 [node name="skull" type="CharacterBody3D"]
 motion_mode = 1
 script = ExtResource("1_sco77")
+health = null
+speed = null
+turn_speed = null
+detection_range = null
+attack_range = null
 explosion_radius = 3.0
+explosion_damage = null
+separation_radius = null
+separation_weight = null
+alignment_radius = null
+alignment_weight = null
+cohesion_radius = null
+cohesion_weight = null
+orbit_speed = null
+attack_speed = null
+attack_duration = null
+return_altitude = null
+bank_strength = null
+avoid_distance = null
+avoid_weight = null
+model_rotation_offset = null
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(0.75917226, 0, 0, 0, 0.04012902, -0.5808964, 0, 1.0474465, 0.022254892, -0.03129697, 0.17760873, 0.86382985)
@@ -106,5 +126,3 @@ surface_material_override/0 = SubResource("StandardMaterial3D_pa1hf")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, -0.5031738, 0.18822026)
 shape = SubResource("CapsuleShape3D_sco77")
-
-[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="."]

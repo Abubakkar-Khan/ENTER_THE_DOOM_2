@@ -106,7 +106,7 @@ func update_mesh() -> void:
 			vertex.y = get_height(vertex.x, vertex.z)
 	
 			# Pillars to the end
-			if vertex.y >= 6:
+			if vertex.y >= 7:
 				vertex.y = 200  # push far down so nav mesh ignores it
 			
 			#

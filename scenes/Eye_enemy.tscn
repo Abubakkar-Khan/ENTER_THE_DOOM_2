@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=4 uid="uid://b5o2m3hxvefjn"]
+[gd_scene load_steps=26 format=4 uid="uid://b5o2m3hxvefjn"]
 
 [ext_resource type="Script" uid="uid://b5a2ochjema6c" path="res://script/Eye_enemy.gd" id="1_6gr6m"]
 [ext_resource type="Texture2D" uid="uid://7ske5wpykq31" path="res://Imports/monster2/animated_fps_eye_monster_0.png" id="3_nfijb"]
@@ -151,22 +151,9 @@ shader_parameter/sun_dark = Vector3(0.38, 0.08, 0.05)
 shader_parameter/sun_mid = Vector3(0.92, 0.45, 0.05)
 shader_parameter/sun_hot = Vector3(1, 0.88, 0.15)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6gr6m"]
-render_priority = 2
-next_pass = SubResource("ShaderMaterial_lxk7o")
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0, 0, 0, 1)
-grow = true
-grow_amount = 15.0
-stencil_mode = 3
-stencil_flags = 1
-stencil_compare = 5
-metadata/_stencil_owned = true
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nfijb"]
 render_priority = 1
-next_pass = SubResource("StandardMaterial3D_6gr6m")
+next_pass = SubResource("ShaderMaterial_lxk7o")
 transparency = 1
 blend_mode = 1
 shading_mode = 0
@@ -176,16 +163,16 @@ disable_ambient_light = true
 albedo_color = Color(0, 0, 0, 1)
 grow = true
 grow_amount = 1.295
-stencil_mode = 1
-stencil_flags = 2
+stencil_mode = 3
+stencil_flags = 1
+stencil_compare = 5
 stencil_outline_thickness = 15.0
 metadata/_stencil_owned = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l6s0y"]
 next_pass = SubResource("StandardMaterial3D_nfijb")
-transparency = 1
+transparency = 4
 albedo_texture = ExtResource("3_nfijb")
-albedo_texture_force_srgb = true
 roughness = 0.0
 emission = Color(1, 0, 0, 1)
 stencil_mode = 1
@@ -3517,7 +3504,6 @@ _data = {
 [node name="Eye_enemy" type="CharacterBody3D"]
 transform = Transform3D(-0.5, 0, -7.54979e-08, 0, 0.5, 0, 7.54979e-08, 0, -0.5, 0, 0, 0)
 script = ExtResource("1_6gr6m")
-attack_range = 7.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(2.5, 0, 0, 0, 2.5, 0, 0, 0, 2.5, 1.0920936e-07, 3.111467, -0.7232609)

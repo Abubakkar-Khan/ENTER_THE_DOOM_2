@@ -1,100 +1,158 @@
 extends Node3D
+## Spawner
+## Spawns skulls gradually, replaces dead ones, and holds the few numbers
+## the whole flock needs to move as one body (swarm_center, is_attacking,
+## formation_compression). No moon, no telegraph sub-state, no manager
+## pushing commands into skulls — they just read these values themselves.
 
-@export var enemy_template: PackedScene
-@export var spawn_radius: float = 25.0
-@export var inner_safe_radius: float = 10.0
-@export var spawn_delay_min: float = 2.0
-@export var spawn_delay_max: float = 4.0
-@export var enemies_per_wave_min: int = 2
-@export var enemies_per_wave_max: int = 5
-@export var player_avoid_distance: float = 15.0
+@export var skull_scene: PackedScene
+@export var max_skulls: int = 20
+@export var player: Node3D
+@export var spawn_interval: float = 1.0     # one skull every N seconds
 
-# GLOBAL LIMIT
-static var global_max_limit: int = 0
+# ─── Glide path ───
+@export var glide_speed: float = 22.0
+@export var glide_turn_speed: float = 0.8
+@export var glide_radius_min: float = 20.0
+@export var glide_radius_max: float = 35.0
+@export var glide_height_min: float = 10.0
+@export var glide_height_max: float = 18.0
 
-@onready var container = get_tree().root.find_child("EnemyContainer", true, false)
-@onready var player = get_tree().root.find_child("ProtoController", true, false)
+# ─── Attacks ───
+@export var attack_interval_min: float = 6.0
+@export var attack_interval_max: float = 10.0
+@export var attack_duration: float = 2.5
+@export var attack_speed: float = 45.0
 
-# ------------------------------
+enum AttackType { SWEEP, DIVE }
 
-func _enter_tree():
-	randomize()
-	global_max_limit += 20   # more enemies overall now
-	print("Spawner added. Global limit:", global_max_limit)
+# Shared flock data — Skull.gd reads these every frame.
+var swarm_center: Vector3 = Vector3.ZERO
+var is_attacking: bool = false
+var formation_compression: float = 0.0
+var current_attack: AttackType = AttackType.SWEEP
 
-# ------------------------------
+var _swarm_velocity: Vector3 = Vector3.ZERO
+var _glide_target: Vector3 = Vector3.ZERO
+var _glide_timer: float = 0.0
+var _glide_segment: float = 10.0
 
-func _ready():
-	await get_tree().create_timer(1.0).timeout
-	spawn_loop()
+var _attack_timer: float = 0.0
+var _next_attack_time: float = 8.0
+var _attack_phase: float = 0.0
+var _attack_start: Vector3 = Vector3.ZERO
+var _attack_end: Vector3 = Vector3.ZERO
 
-# ------------------------------
+var slot_taken: Array[bool] = []
+var _spawn_timer: float = 0.0
 
-func spawn_loop():
-	while true:
-		await get_tree().create_timer(randf_range(spawn_delay_min, spawn_delay_max)).timeout
-		
-		spawn_wave()
+func _ready() -> void:
+	if player == null:
+		player = get_tree().get_first_node_in_group("player")
 
-# ------------------------------
+	var anchor: Vector3 = player.global_position if player else global_position
+	swarm_center = anchor + Vector3(0, 15, -25)
+	_glide_target = swarm_center
+	_next_attack_time = randf_range(attack_interval_min, attack_interval_max)
 
-func spawn_wave():
-	if not player:
-		return
+	slot_taken.resize(max_skulls)
+	slot_taken.fill(false)
 
-	var total_enemies = get_tree().get_nodes_in_group("enemies").size()
-	if total_enemies >= global_max_limit:
-		return
+func _physics_process(delta: float) -> void:
+	if player == null:
+		player = get_tree().get_first_node_in_group("player")
+		if player == null:
+			return
 
-	var wave_size = randi_range(enemies_per_wave_min, enemies_per_wave_max)
-
-	for i in range(wave_size):
-		var spawn_pos = get_random_spawn_around_player()
-		if spawn_pos != null:
-			spawn_enemy(spawn_pos)
-
-# ------------------------------
-
-func get_random_spawn_around_player():
-	for i in range(10):
-		var angle = randf() * PI * 2
-		
-		# Spawn in a ring (NOT too close, NOT too far)
-		var distance = randf_range(inner_safe_radius, spawn_radius)
-		
-		var offset = Vector3(cos(angle) * distance, 0, sin(angle) * distance)
-		var pos = player.global_position + offset
-
-		# Avoid spawning too close
-		if pos.distance_to(player.global_position) < player_avoid_distance:
-			continue
-
-		# Navmesh safe
-		var map = get_world_3d().get_navigation_map()
-		var safe_pos = NavigationServer3D.map_get_closest_point(map, pos)
-
-		if safe_pos != Vector3.ZERO:
-			return safe_pos
-
-	return null
-
-# ------------------------------
-
-func spawn_enemy(pos: Vector3):
-	if not enemy_template:
-		return
-
-	var new_zombie = enemy_template.instantiate()
-	new_zombie.global_position = pos
-	new_zombie.add_to_group("enemies")
-
-	if container:
-		container.add_child(new_zombie)
+	if is_attacking:
+		_run_attack(delta)
 	else:
-		get_tree().root.add_child(new_zombie)
+		_update_glide(delta)
+		_attack_timer += delta
+		if _attack_timer >= _next_attack_time:
+			_start_attack()
 
-# ------------------------------
+	_update_spawning(delta)
 
-func _exit_tree():
-	global_max_limit -= 20
-	print("Spawner removed. Global limit:", global_max_limit)
+# ─── Glide ───
+
+func _update_glide(delta: float) -> void:
+	_glide_timer += delta
+	if _glide_timer >= _glide_segment or swarm_center.distance_to(_glide_target) < 3.0:
+		_pick_glide_target()
+
+	var dir: Vector3 = (_glide_target - swarm_center).normalized()
+	_swarm_velocity = _swarm_velocity.lerp(dir * glide_speed, glide_turn_speed * delta)
+	swarm_center += _swarm_velocity * delta
+
+	formation_compression = move_toward(formation_compression, 0.0, delta)
+
+func _pick_glide_target() -> void:
+	_glide_timer = 0.0
+	_glide_segment = randf_range(8.0, 16.0)
+	var angle: float = randf_range(0.0, TAU)
+	var radius: float = randf_range(glide_radius_min, glide_radius_max)
+	var height: float = randf_range(glide_height_min, glide_height_max)
+	_glide_target = player.global_position + Vector3(cos(angle) * radius, height, sin(angle) * radius)
+
+# ─── Attack ───
+
+func _start_attack() -> void:
+	is_attacking = true
+	_attack_phase = 0.0
+	current_attack = (randi() % AttackType.size()) as AttackType
+
+	var p: Vector3 = player.global_position
+	if current_attack == AttackType.SWEEP:
+		var side: float = 1.0 if randf() < 0.5 else -1.0
+		_attack_start = p + Vector3(-side * 30.0, 8.0, -8.0)
+		_attack_end = p + Vector3(side * 30.0, 8.0, -8.0)
+	else:
+		_attack_start = p + Vector3(0.0, 22.0, -25.0)
+		_attack_end = p + Vector3(0.0, 4.0, 20.0)
+
+	swarm_center = _attack_start
+
+func _run_attack(delta: float) -> void:
+	_attack_phase += delta / attack_duration
+	var t: float = clamp(_attack_phase, 0.0, 1.0)
+	var eased: float = t * t * (3.0 - 2.0 * t)
+	swarm_center = _attack_start.lerp(_attack_end, eased)
+
+	formation_compression = 1.0 if t < 0.85 else lerp(1.0, 0.3, (t - 0.85) / 0.15)
+
+	if _attack_phase >= 1.0:
+		is_attacking = false
+		_attack_timer = 0.0
+		_next_attack_time = randf_range(attack_interval_min, attack_interval_max)
+		_pick_glide_target()
+
+# ─── Spawning ───
+
+func _update_spawning(delta: float) -> void:
+	_spawn_timer += delta
+	if _spawn_timer < spawn_interval:
+		return
+	_spawn_timer = 0.0
+
+	var slot: int = slot_taken.find(false)
+	if slot == -1:
+		return
+	_spawn_skull(slot)
+
+func _spawn_skull(slot: int) -> void:
+	if skull_scene == null:
+		return
+
+	slot_taken[slot] = true
+
+	var skull := skull_scene.instantiate()
+	skull.global_position = global_position   # spawns from wherever you place the Spawner node
+	get_tree().current_scene.add_child(skull)
+
+	if skull.has_method("initialize"):
+		skull.initialize(self, player, slot, max_skulls)
+
+func notify_skull_died(slot: int) -> void:
+	if slot >= 0 and slot < slot_taken.size():
+		slot_taken[slot] = false
