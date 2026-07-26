@@ -1,41 +1,46 @@
 extends CharacterBody3D
 ## Skull — one segment of the flock/dragon.
 ## CALM: true boid behavior (cohesion + alignment + separation) layered on
-##   top of a loose, noise-driven personal orbit — nothing is a fixed sine
-##   ring anymore, so no two loops ever look the same and the flock reacts
-##   to itself instead of tracing a carousel path.
-## WARNING: the whole flock rushes — extremely fast — into a formation
-##   shape around the leader, at a set distance out in front of the
-##   player, gathering into a wing-like shape before it commits.
-## ATTACK: trails the leader's recent path like a segment of a serpent's
-##   body (see Spawner.get_history_position()), with a per-skull sideways
-##   ripple so the chain slithers instead of tracing one exact line.
+##   top of a loose, noise-driven personal orbit. Movement here is slow and
+##   majestic — low turn rate, wide gentle banking, no per-frame jitter.
+## WARNING: the whole flock rushes into a formation shape around the
+##   leader, at a set distance out in front of the player.
+## ATTACK: trails the leader's recent path exactly, like a tight, disciplined
+##   serpent body — high turn rate, shallow bank, no wobble. Longer, farther,
+##   faster than the calm phase so it reads as a real committed strike.
 ## After an ATTACK ends: scatters outward briefly, then drifts back into
 ##   its calm orbit on its own.
 
 signal exploded(position: Vector3)
 
 @export var health: float = 1.0
-@export var attack_range: float = 4.0
-@export var explosion_radius: float = 4.0
-@export var explosion_damage: float = 15.0
+@export var attack_range: float = 2.0
+@export var touch_damage: float = 5.0
+@export var explosion_radius: float = 2.0
+@export var explosion_damage: float = 5.0
 
 @export var calm_speed: float = 16.0
-@export var warning_speed: float = 78.0     # extremely fast formation rush-in
-@export var attack_speed: float = 24.0
+@export var warning_speed: float = 95.0     # extremely fast formation rush-in
+@export var attack_speed: float = 115.0     # fast, committed strike
 @export var recover_speed: float = 30.0
-@export var turn_speed: float = 5.0
-@export var max_bank_angle: float = 0.9    # radians — how far it leans into turns
+
+# Turn/bank response is phase-based: slow and graceful while wandering,
+# snappy and locked-in while gathering/attacking. This split is most of
+# what makes CALM read as "majestic" and ATTACK read as "tight".
+@export var turn_speed_calm: float = 2.2
+@export var turn_speed_attack: float = 11.0
+@export var max_bank_calm: float = 0.9       # radians — wide, graceful lean while wandering
+@export var max_bank_attack: float = 0.32    # radians — shallow, controlled lean while attacking
 
 @export var model_forward_correction: float = 0.0
 
 @export var separation_radius: float = 2.2
-@export var separation_strength: float = 9.0
+@export var separation_strength: float = 7.0
 @export var neighbor_radius: float = 12.0   # how far a skull "sees" flockmates
-@export var cohesion_strength: float = 2.5
-@export var alignment_strength: float = 1.8
+@export var cohesion_strength: float = 1.8
+@export var alignment_strength: float = 1.3
 
-@export var chain_wave_amplitude: float = 1.3  # sideways ripple while trailing in ATTACK
+@export var chain_wave_amplitude: float = 0.0  # sideways ripple while trailing in ATTACK (0 = tight/off)
 
 @export var recover_duration: float = 1.6  # scatter time right after an attack pass
 
@@ -62,11 +67,12 @@ var _altitude_phase: float
 var _calm_time: float = 0.0
 
 # Per-skull noise generator + individual variance, so 18 skulls don't read
-# as 18 copies of the same script running with a phase offset.
+# as 18 copies of the same script running with a phase offset. Variance is
+# kept tight (small ranges below) so individuality doesn't read as shake.
 var _noise: FastNoiseLite
-var _speed_noise_offset: float
-var _turn_speed_indiv: float
-var _max_bank_indiv: float
+var _drift_offset: float
+var _turn_indiv_factor: float
+var _bank_indiv_factor: float
 
 var _last_phase: int = -1
 var _recover_timer: float = 0.0
@@ -97,11 +103,11 @@ func initialize(swarm_spawner: Node, swarm_player: Node3D, slot: int, gap_frames
 
 func _init_personality() -> void:
 	var s: float = float(slot_index)
-	_ring_radius = 9.0 + fmod(s * 3.3, 9.0)          # ~9..18
-	_ring_speed = 0.18 + fmod(s * 0.081, 0.22)        # ~0.18..0.40
+	_ring_radius = 9.0 + fmod(s * 3.3, 9.0)             # ~9..18
+	_ring_speed = 0.12 + fmod(s * 0.05, 0.12)            # slow, majestic base orbit rate
 	_ring_phase = s * GOLDEN_ANGLE
-	_altitude_amp = 2.0 + fmod(s * 1.7, 3.5)          # ~2..5.5
-	_altitude_speed = 0.3 + fmod(s * 0.061, 0.35)
+	_altitude_amp = 2.0 + fmod(s * 1.7, 3.5)             # ~2..5.5
+	_altitude_speed = 0.22 + fmod(s * 0.045, 0.2)
 	_altitude_phase = s * GOLDEN_ANGLE * 1.5
 
 	# Deterministic-but-unique seed per skull — same skull always moves the
@@ -110,43 +116,55 @@ func _init_personality() -> void:
 	_noise.seed = slot_index * 977 + 13
 	_noise.frequency = 1.0
 
-	_speed_noise_offset = s * GOLDEN_ANGLE * 3.0
-	_turn_speed_indiv = turn_speed * (0.85 + fmod(s * 0.257, 0.3))
-	_max_bank_indiv = max_bank_angle * (0.8 + fmod(s * 0.199, 0.4))
+	_drift_offset = s * GOLDEN_ANGLE * 3.0
+	# Tight variance ranges on purpose — enough to avoid a "carbon copy"
+	# look, not enough to read as randomness/shake.
+	_turn_indiv_factor = 0.94 + fmod(s * 0.14, 0.12)
+	_bank_indiv_factor = 0.92 + fmod(s * 0.11, 0.16)
 
 func _physics_process(delta: float) -> void:
 	if state == State.EXPLODING:
 		return
+
 	if player == null:
 		player = get_tree().get_first_node_in_group("player")
 		if player == null:
 			return
+
 	if global_position.distance_to(player.global_position) <= attack_range:
-		print("touch check RANDOM player")
 		_touch_player()
 		explode()
 		return
+
 	_calm_time += delta
 	_track_phase_change(delta)
+
 	var target: Vector3 = _current_target()
 	var speed: float = _current_speed()
+	var turn_rate: float = _current_turn_rate()
+
 	var steer: Vector3 = (target - global_position).normalized() * speed
 	steer += _flock_forces()
-	velocity = velocity.lerp(steer, _turn_speed_indiv * delta)
+
+	velocity = velocity.lerp(steer, turn_rate * delta)
 	move_and_slide()
+
 	for i in range(get_slide_collision_count()):
 		if get_slide_collision(i).get_collider() == player:
 			_touch_player()
 			explode()
 			return
-	_update_rotation(delta)
+
+	_update_rotation(delta, turn_rate)
 
 func _touch_player() -> void:
+	if player == null:
+		return
 	if player.has_method("take_damage"):
-		player.take_damage(10.0)
+		player.take_damage(touch_damage)
 	elif player.has_method("apply_damage"):
-		player.apply_damage(10.0)
-		
+		player.apply_damage(touch_damage)
+
 func _track_phase_change(delta: float) -> void:
 	if _recover_timer > 0.0:
 		_recover_timer -= delta
@@ -182,48 +200,50 @@ func _current_target() -> Vector3:
 		# out from the player — this is the "gather up fast" moment.
 		return spawner.leader_pos + spawner.get_formation_offset(slot_index)
 
-	# ATTACK: trail the leader like a segment of its body, with a sideways
-	# ripple so the chain slithers instead of tracing one exact line.
+	# ATTACK: trail the leader exactly, like a tight, disciplined body.
+	# (chain_wave_amplitude defaults to 0 — set it above 0 if you want a
+	# subtle sideways ripple back; kept tight/off by default on purpose.)
 	var delay_frames: int = slot_index * chain_gap_frames
 	var base_pos: Vector3 = spawner.get_history_position(delay_frames)
-	var ahead_pos: Vector3 = spawner.get_history_position(max(delay_frames - 1, 0))
-	var travel_dir: Vector3 = ahead_pos - base_pos
-	if travel_dir.length() > 0.01:
-		var side: Vector3 = travel_dir.normalized().cross(Vector3.UP)
-		var wave: float = _noise.get_noise_1d(_calm_time * 3.0)
-		return base_pos + side * wave * chain_wave_amplitude
+	if chain_wave_amplitude > 0.001:
+		var ahead_pos: Vector3 = spawner.get_history_position(max(delay_frames - 1, 0))
+		var travel_dir: Vector3 = ahead_pos - base_pos
+		if travel_dir.length() > 0.01:
+			var side: Vector3 = travel_dir.normalized().cross(Vector3.UP)
+			var wave: float = _noise.get_noise_1d(_calm_time * 1.5)
+			return base_pos + side * wave * chain_wave_amplitude
 	return base_pos
 
 func _calm_target() -> Vector3:
-	var angle: float = _calm_time * _ring_speed + _ring_phase
-	# Slow noise-driven wobble on the angle and a breathing radius — the
-	# ring is no longer a fixed carousel track, it drifts and never
-	# retraces itself exactly.
-	var wobble: float = _noise.get_noise_1d(_calm_time * 0.15) * 0.6
-	var radius: float = _ring_radius * (1.0 + _noise.get_noise_1d(_calm_time * 0.08 + 50.0) * 0.35)
-	var altitude: float = sin(_calm_time * _altitude_speed + _altitude_phase) * _altitude_amp \
-		+ _noise.get_noise_1d(_calm_time * 0.2 + 100.0) * _altitude_amp * 0.5
+	# Angular *rate* drifts slowly via noise (always positive) instead of
+	# jittering the angle directly — this keeps travel direction perfectly
+	# smooth (no shake) while still not being a fixed-speed carousel.
+	var drift: float = 1.0 + _noise.get_noise_1d(_calm_time * 0.05 + _drift_offset) * 0.2
+	var angle: float = _calm_time * _ring_speed * drift + _ring_phase
+	var radius: float = _ring_radius * (1.0 + _noise.get_noise_1d(_calm_time * 0.04 + 50.0) * 0.12)
+	var altitude: float = sin(_calm_time * _altitude_speed + _altitude_phase) * _altitude_amp
 	return spawner.leader_pos + Vector3(
-		cos(angle + wobble) * radius,
+		cos(angle) * radius,
 		altitude,
-		sin(angle + wobble) * radius
+		sin(angle) * radius
 	)
 
 func _current_speed() -> float:
 	if _recover_timer > 0.0:
 		return recover_speed
+	if spawner == null:
+		return calm_speed
+	if spawner.phase == Phase.WARNING:
+		return warning_speed
+	if spawner.phase == Phase.ATTACK:
+		return attack_speed
+	return calm_speed
 
-	var base_speed: float = calm_speed
-	if spawner != null:
-		if spawner.phase == Phase.WARNING:
-			base_speed = warning_speed
-		elif spawner.phase == Phase.ATTACK:
-			base_speed = attack_speed
-
-	# Per-skull speed flutter — reads like wingbeats instead of a constant
-	# glide, and each skull flutters on its own unsynced clock.
-	var flutter: float = _noise.get_noise_1d(_calm_time * 2.0 + _speed_noise_offset) * 0.18
-	return base_speed * (1.0 + flutter)
+func _current_turn_rate() -> float:
+	var base_turn: float = turn_speed_calm
+	if _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
+		base_turn = turn_speed_attack
+	return base_turn * _turn_indiv_factor
 
 func _flock_forces() -> Vector3:
 	var cohesion_sum: Vector3 = Vector3.ZERO
@@ -260,7 +280,7 @@ func _flock_forces() -> Vector3:
 
 	return force
 
-func _update_rotation(delta: float) -> void:
+func _update_rotation(delta: float, turn_rate: float) -> void:
 	if velocity.length() <= 1.0:
 		return
 
@@ -268,16 +288,24 @@ func _update_rotation(delta: float) -> void:
 	var target_basis: Basis = Basis.looking_at(-face_dir, Vector3.UP)
 	target_basis = target_basis.rotated(Vector3.UP, model_forward_correction)
 
-	# Bank into turns like a bird/dragon wing tilt
+	var bank_limit: float = max_bank_calm
+	if _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
+		bank_limit = max_bank_attack
+	bank_limit *= _bank_indiv_factor
+
+	# Bank into turns like a bird/dragon wing tilt — lower multiplier and
+	# slower roll-lerp than before so small direction changes don't cause
+	# the bank to flip back and forth (that flip-flopping is what reads as
+	# "shaking").
 	var flat_dir: Vector3 = Vector3(face_dir.x, 0.0, face_dir.z)
 	if flat_dir.length() > 0.01 and _prev_flat_dir.length() > 0.01:
 		flat_dir = flat_dir.normalized()
-		var turn_amount: float = clamp(_prev_flat_dir.cross(flat_dir).y * 14.0, -1.0, 1.0)
-		_roll = lerp(_roll, turn_amount * _max_bank_indiv, 6.0 * delta)
+		var turn_amount: float = clamp(_prev_flat_dir.cross(flat_dir).y * 6.0, -1.0, 1.0)
+		_roll = lerp(_roll, turn_amount * bank_limit, 4.0 * delta)
 		_prev_flat_dir = flat_dir
 	target_basis = target_basis.rotated(face_dir, _roll)
 
-	transform.basis = transform.basis.slerp(target_basis, _turn_speed_indiv * delta)
+	transform.basis = transform.basis.slerp(target_basis, turn_rate * delta)
 
 func take_damage(amount: float) -> void:
 	if state == State.EXPLODING:

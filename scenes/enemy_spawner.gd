@@ -20,19 +20,20 @@ extends Node3D
 # Noise-driven rather than sine-driven, so the leader's path never
 # retraces itself.
 @export var calm_wander_speed: float = 0.12   # how fast we walk across the noise field
-@export var calm_wander_scale: float = 40.0
+@export var calm_wander_scale: float = 24.0
 @export var calm_duration_min: float = 8.0
 @export var calm_duration_max: float = 13.0
 
 # ─── Warning phase: the flock rushes into formation ───
-@export var warning_duration: float = 1.4
-@export var formation_distance_from_player: float = 30.0  # how far out the formation forms
+@export var warning_duration: float = 2.4
+@export var formation_distance_from_player: float = 32.0  # how far out the formation forms
 @export var formation_radius: float = 7.0
 @export var formation_flatten: float = 0.55   # <1 flattens the sphere into a wing-like shape
 
 # ─── Attack phase: one fast committed pass ───
-@export var attack_duration: float = 2.2
-@export var attack_curve_amount: float = 12.0  # how much the dash bows away from a straight line
+@export var attack_duration: float = 3.2
+@export var attack_curve_amount: float = 18.0  # how much the dash bows away from a straight line
+@export var attack_homing: float = 1.2   # how strongly the pass corrects toward the player mid-flight
 
 enum Phase { CALM, WARNING, ATTACK }
 enum AttackType { SWEEP, DIVE }
@@ -114,7 +115,7 @@ func _update_calm(delta: float) -> void:
 	# axes so it doesn't just look like one wave copied three times.
 	leader_pos = p + Vector3(
 		_noise.get_noise_2d(t, 0.0) * calm_wander_scale,
-		20.0 + _noise.get_noise_2d(t, 100.0) * 5.0,
+		14.0 + _noise.get_noise_2d(t, 100.0) * 5.0,
 		_noise.get_noise_2d(t, 200.0) * calm_wander_scale
 	)
 
@@ -171,11 +172,11 @@ func _begin_attack() -> void:
 	var p: Vector3 = player.global_position
 	if _attack_type == AttackType.SWEEP:
 		var side: float = 1.0 if randf() < 0.5 else -1.0
-		_attack_start = p + Vector3(-side * 55.0, 9.0, -20.0)
-		_attack_end = p + Vector3(side * 55.0, 9.0, -20.0)
+		_attack_start = p + Vector3(-side * 60.0, 11.0, -20.0)
+		_attack_end = p + Vector3(side * 60.0, 11.0, -20.0)
 	else:
-		_attack_start = p + Vector3(0.0, 30.0, -50.0)
-		_attack_end = p + Vector3(0.0, 4.0, 35.0)
+		_attack_start = p + Vector3(0.0, 32.0, -65.0)
+		_attack_end = p + Vector3(0.0, 5.0, 8.0)
 
 	_attack_mid_offset = Vector3(
 		randf_range(-attack_curve_amount, attack_curve_amount),
@@ -189,6 +190,10 @@ func _update_attack(delta: float) -> void:
 	_attack_phase += delta / attack_duration
 	var t: float = clamp(_attack_phase, 0.0, 1.0)
 	var eased: float = t * t * (3.0 - 2.0 * t)
+
+	# Gentle homing keeps the pass credible over the longer distance if the
+	# player moves — it nudges the endpoint, it doesn't lock on.
+	_attack_end = _attack_end.lerp(player.global_position + Vector3(0, 6, 0), attack_homing * delta)
 
 	var mid: Vector3 = (_attack_start + _attack_end) * 0.5 + _attack_mid_offset
 	leader_pos = _quad_bezier(_attack_start, mid, _attack_end, eased)
