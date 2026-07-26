@@ -4,7 +4,7 @@ extends CharacterBody3D
 @export var player: Node3D
 
 # Health
-@export var health: float = 10.0
+@export var health: float = 100.0
 
 # Offset to look at the player's head/chest
 @export var look_offset: Vector3 = Vector3(0, 1.5, 0)
@@ -30,7 +30,7 @@ func _process(_delta: float) -> void:
 	look_at(target_pos, up_vec)
 
 func take_damage(amount: float) -> void:
-	health -= amount
+	health -= (amount * 0.5)
 	GameData.eye_health = health
 	print("Eye Health:", int(health))
 

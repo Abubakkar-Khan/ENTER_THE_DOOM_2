@@ -31,6 +31,11 @@ const SIZE := 256.0
 			noise.changed.connect(generate_terrain)
 		generate_terrain()
 
+@onready var pause_menu: CanvasLayer = $Pause
+
+func _ready():
+	pause_menu.hide()
+	
 # --- MATH HELPER ---
 func get_height(x: float, y: float) -> float:
 	if not noise: return 0.0
@@ -121,3 +126,15 @@ func update_collision(mesh_data: ArrayMesh):
 	# CRITICAL: Set owner so it appears in Scene Tree
 	if Engine.is_editor_hint():
 		col_node.owner = get_tree().edited_scene_root
+		
+
+func _input(event):
+	if event.is_action_pressed("ui_cancel"):
+		get_tree().paused = !get_tree().paused
+
+		if get_tree().paused:
+			pause_menu.show()
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		else:
+			pause_menu.hide()
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

@@ -33,17 +33,10 @@ shader_parameter/u_chromatic = 0.4
 shader_parameter/u_vignette_strength = 0.22
 shader_parameter/u_vignette_radius = 1.45
 
-[node name="Pause" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Pause" type="CanvasLayer"]
 
 [node name="ColorRect" type="ColorRect" parent="."]
 z_index = -1
-layout_mode = 0
 offset_left = -272.0
 offset_top = -109.0
 offset_right = 1444.0
@@ -51,7 +44,6 @@ offset_bottom = 828.0
 color = Color(0, 0, 0, 1)
 
 [node name="TextureRect" type="TextureRect" parent="."]
-layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -62,7 +54,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="ui_scale" type="Control" parent="."]
-layout_mode = 1
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -120,7 +112,6 @@ color = Color(0.99999934, 0.12906384, 0.19087338, 1)
 visible = false
 z_index = 14
 material = SubResource("ShaderMaterial_xmhi0")
-layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

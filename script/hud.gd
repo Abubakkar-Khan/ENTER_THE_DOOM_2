@@ -34,7 +34,6 @@ func _process(_delta):
 		game_over_triggered = true
 		await get_tree().create_timer(1.5).timeout
 		proto_controller.die()
-		#get_tree().change_scene_to_file("res://scenes/game_over.tscn")
 
 func update_layout():
 	var viewport_size = get_viewport().get_visible_rect().size

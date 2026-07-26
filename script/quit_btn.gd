@@ -9,7 +9,9 @@ func _ready():
 	pressed.connect(_on_pressed)
 
 func _on_pressed():
-	get_tree().quit()
+	get_tree().paused = false
+	get_parent().get_parent().hide()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _on_hover():
 	modulate = hover_color

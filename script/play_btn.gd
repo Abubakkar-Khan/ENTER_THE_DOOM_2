@@ -38,6 +38,8 @@ func _on_mouse_exited():
 
 # This function runs when you CLICK the button
 func _on_pressed():
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	get_tree().change_scene_to_file("res://scenes/TerrainController.tscn")
 	print("PRESSED PLAY")
 	if game_scene_path == "":
