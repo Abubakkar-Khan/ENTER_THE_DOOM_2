@@ -154,30 +154,6 @@ func die():
 	print(err)
 
 
-#func die():
-	#if is_dead:
-		#return
-#
-	#is_dead = true
-	#can_move = false
-	#can_shoot = false
-#
-	#if scream_sound:
-		#scream_sound.play()
-#
-	#Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-#
-	#Engine.time_scale = 0.15
-#
-	#var fade = create_tween()
-	#fade.set_ignore_time_scale(true)
-	#fade.tween_property(death_fade, "color:a", 1.0, 2.0)
-#
-	#fade.finished.connect(func():
-		#Engine.time_scale = 1.0
-		#get_tree().change_scene_to_file("res://scenes/game_over.tscn")
-	#)
-
 
 
 

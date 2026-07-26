@@ -231,6 +231,7 @@ spot_angle_attenuation = 1.8024994
 
 [node name="skull" parent="." instance=ExtResource("14_jvcpg")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.5501, 5.6900544, 46.717186)
+visible = false
 
 [node name="Pause" parent="." instance=ExtResource("12_70t6k")]
 process_mode = 3

@@ -1,51 +1,57 @@
 extends Node3D
 ## Spawner — the "dragon's mind"
 ## Owns the leader path (the head of the flock), the phase state machine,
-## and a short rolling history of the leader's recent positions so skulls
-## can trail behind it like segments of a serpent's body. Skulls read
-## leader_pos / phase / history / formation offsets off this node every
-## frame — nothing is pushed into them.
+## a short rolling history of the leader's recent positions (chain-follow),
+## and formation offsets. Skulls read leader_pos / phase / history /
+## formation offsets off this node every frame — nothing is pushed into
+## them.
 ##
-## ATTACK is now a whole "campaign": the leader dives through/near the
-## player, climbs back up high, circles to a new angle, and dives again —
-## repeating for up to ~30 seconds before finally settling back to CALM.
-## Each dive is one whoosh; the climbs in between are what make it read as
-## a bird circling high up before swooping again, instead of one pass.
+## ATTACK is a whole "campaign": the leader dives through/near the player,
+## climbs back up high, circles to a new angle (left/right/high/rear/low),
+## and dives again — repeating for up to ~30 seconds before settling back
+## to CALM. Each dive overshoots well past the player so it reads as a
+## long sweeping pass, not a stab.
 
 @export var skull_scene: PackedScene
 @export var max_skulls: int = 18
 @export var player: Node3D
-@export var spawn_interval: float = 1.6    # new skull joins roughly this often, only during CALM
-
-# ─── Dragon chain ───
 @export var chain_gap_frames: int = 5
 
-# ─── Calm phase: organic wandering ───
+# ─── Wave spawning — groups arrive together, staggered, not a trickle ───
+@export var wave_min_size: int = 4
+@export var wave_max_size: int = 7
+@export var wave_interval_min: float = 6.0
+@export var wave_interval_max: float = 10.0
+@export var wave_spawn_stagger: float = 0.25   # seconds between individual spawns within a wave
+
+# ─── Calm phase: organic wandering, never stops ───
 @export var calm_wander_speed: float = 0.12
-@export var calm_wander_scale: float = 24.0
+@export var calm_wander_scale: float = 30.0
 @export var calm_duration_min: float = 8.0
 @export var calm_duration_max: float = 13.0
 
 # ─── Warning phase: the flock rushes into formation ───
 @export var warning_duration: float = 2.4
 @export var formation_distance_from_player: float = 32.0
-@export var formation_radius: float = 7.0
-@export var formation_flatten: float = 0.55   # <1 flattens the sphere into a wing-like shape
+@export var formation_radius: float = 9.0
+@export var formation_flatten: float = 0.5   # <1 flattens into a wing shape
 
 # ─── Attack campaign: repeated dive + climb passes, up to ~30s ───
 @export var attack_campaign_duration_min: float = 20.0
 @export var attack_campaign_duration_max: float = 30.0
-@export var pass_dive_duration: float = 3.0     # one whoosh through the player
-@export var pass_climb_duration: float = 1.7      # climbing back up high between dives
-@export var high_altitude: float = 42.0           # how high it circles between dives
-@export var dive_curve_amount: float = 2.0       # bow on each dive's path (not a straight line)
-@export var attack_formation_radius: float = 10.0  # wing-spread while diving — skulls near the
-													 # center line hit the player, ones further
-													 # out whoosh past. by design: some, not all.
-@export var attack_homing: float = 1.6            # how strongly a dive corrects toward the player
+@export var pass_dive_duration: float = 3.6      # one long sweeping whoosh through the player
+@export var pass_climb_duration: float = 2.4     # climbing back up high between dives
+@export var high_altitude: float = 46.0
+@export var dive_curve_amount: float = 5.0       # bigger bow = a real arc, not a straight stab
+@export var dive_overshoot_min: float = 40.0     # how far it keeps flying PAST the player
+@export var dive_overshoot_max: float = 75.0
+@export var attack_formation_radius: float = 14.0  # wing-spread while diving — center skulls fly
+													 # closest to the player, outer ones pass wide
+@export var attack_homing: float = 1.6
 
 enum Phase { CALM, WARNING, ATTACK }
 enum AttackSub { DIVE, CLIMB }
+enum ApproachType { LEFT, RIGHT, HIGH, REAR, LOW }
 
 var phase: Phase = Phase.CALM
 var leader_pos: Vector3 = Vector3.ZERO
@@ -66,6 +72,7 @@ var _climb_start: Vector3 = Vector3.ZERO
 var _climb_end: Vector3 = Vector3.ZERO
 
 var _warning_point: Vector3 = Vector3.ZERO
+var _approach_dir: Vector3 = Vector3.BACK
 
 var _noise: FastNoiseLite
 
@@ -74,7 +81,10 @@ var _history_capacity: int = 0
 var _history_write: int = 0
 
 var slot_taken: Array[bool] = []
-var _spawn_timer: float = 0.0
+var _wave_timer: float = 0.0
+var _next_wave_interval: float = 8.0
+var _pending_spawns: int = 0
+var _spawn_stagger_timer: float = 0.0
 
 func _ready() -> void:
 	if player == null:
@@ -88,6 +98,7 @@ func _ready() -> void:
 	_history.fill(leader_pos)
 
 	_calm_duration = randf_range(calm_duration_min, calm_duration_max)
+	_next_wave_interval = randf_range(wave_interval_min, wave_interval_max)
 
 	_noise = FastNoiseLite.new()
 	_noise.seed = randi()
@@ -117,7 +128,7 @@ func _physics_process(delta: float) -> void:
 	if phase == Phase.CALM:
 		_update_spawning(delta)
 
-# ─── CALM: noise-driven wander, feels organic and never repeats ───
+# ─── CALM: noise-driven wander — organic, never repeats, never stops ───
 
 func _update_calm(delta: float) -> void:
 	var p: Vector3 = player.global_position
@@ -137,8 +148,8 @@ func _begin_warning() -> void:
 	_phase_timer = 0.0
 	var to_player: Vector3 = (player.global_position - leader_pos)
 	to_player.y = 0.0
-	var approach_dir: Vector3 = to_player.normalized() if to_player.length() > 0.5 else Vector3.BACK
-	_warning_point = player.global_position - approach_dir * formation_distance_from_player + Vector3(0, 13, 0)
+	_approach_dir = to_player.normalized() if to_player.length() > 0.5 else Vector3.BACK
+	_warning_point = player.global_position - _approach_dir * formation_distance_from_player + Vector3(0, 13, 0)
 
 func _update_warning(delta: float) -> void:
 	leader_pos = leader_pos.lerp(_warning_point, 10.0 * delta)
@@ -148,24 +159,46 @@ func _update_warning(delta: float) -> void:
 	if _phase_timer >= warning_duration:
 		_begin_attack_campaign()
 
-## Deterministic per-slot offset used to spread skulls into a formation —
-## used both for the WARNING gather-up (radius = formation_radius) and for
-## the wing-spread while diving in ATTACK (radius = attack_formation_radius).
-## Flattened fibonacci-sphere spread: evenly distributed, stable frame to
-## frame, no jitter or overlap — reads as a deliberate wing, not a clump.
-func get_formation_offset(slot: int, radius: float) -> Vector3:
+## Deterministic per-slot offset that spreads skulls into a wing shape,
+## oriented perpendicular to whatever direction the leader is currently
+## flying. Radius grows with sqrt(slot/total): low slots sit near the
+## center of the wing (closest to the player's flight line), high slots
+## sit further out (they whoosh past wide). That's what makes it read as
+## a deliberate formation instead of a clump or a single line.
+func get_formation_offset(slot: int, radius: float, forward: Vector3 = Vector3.FORWARD) -> Vector3:
 	var n: float = float(max(max_skulls, 1))
 	var i: float = float(slot) + 0.5
-	var phi: float = acos(clamp(1.0 - 2.0 * i / n, -1.0, 1.0))
+	var r: float = radius * sqrt(i / n)
 	var theta: float = PI * (1.0 + sqrt(5.0)) * i
-	return Vector3(
-		sin(phi) * cos(theta) * radius,
-		cos(phi) * radius * formation_flatten,
-		sin(phi) * sin(theta) * radius
-	)
 
-# ─── ATTACK CAMPAIGN: repeated dive + climb passes — "wosh and wosh" — for
-#     up to ~30 seconds before finally breaking off back to CALM. ───
+	var fwd: Vector3 = forward
+	if fwd.length() < 0.01:
+		fwd = Vector3.FORWARD
+	fwd = fwd.normalized()
+	var right: Vector3 = fwd.cross(Vector3.UP)
+	if right.length() < 0.01:
+		right = Vector3.RIGHT
+	right = right.normalized()
+	var up: Vector3 = right.cross(fwd).normalized()
+
+	return right * (cos(theta) * r) + up * (sin(theta) * r * formation_flatten)
+
+## The direction the leader is currently flying, used to orient the wing
+## formation so it faces the direction of travel.
+func get_leader_forward() -> Vector3:
+	if phase == Phase.WARNING:
+		return _approach_dir
+	if phase == Phase.ATTACK:
+		if _attack_sub == AttackSub.DIVE:
+			var d: Vector3 = _dive_end - _dive_start
+			return d.normalized() if d.length() > 0.01 else Vector3.FORWARD
+		else:
+			var d2: Vector3 = _climb_end - _climb_start
+			return d2.normalized() if d2.length() > 0.01 else Vector3.FORWARD
+	return Vector3.FORWARD
+
+# ─── ATTACK CAMPAIGN: repeated dive + climb passes for up to ~30 seconds
+#     before finally breaking off back to CALM. ───
 
 func _begin_attack_campaign() -> void:
 	phase = Phase.ATTACK
@@ -187,17 +220,10 @@ func _begin_dive_pass() -> void:
 	_sub_timer = 0.0
 
 	_dive_start = leader_pos
-	var p: Vector3 = player.global_position
-	var side: float = 1.0 if randf() < 0.5 else -1.0
-	# Aim just past the player so the dive carries all the way through
-	# instead of stopping dead on top of them.
-	
-	# Fly THROUGH the player instead of beside them.
-	var attack_dir = (_dive_start - player.global_position).normalized()
-
-	# Fly THROUGH the player's chest, then continue 35m forward.
-	var player_target = player.global_position + Vector3(0, 1.5, 0)
-	_dive_end = player_target + attack_dir * 35.0
+	var attack_dir: Vector3 = (_dive_start - player.global_position).normalized()
+	var player_target: Vector3 = player.global_position + Vector3(0, 1.5, 0)
+	var overshoot: float = randf_range(dive_overshoot_min, dive_overshoot_max)
+	_dive_end = player_target + attack_dir * overshoot
 
 	_dive_mid_offset = Vector3(
 		randf_range(-dive_curve_amount, dive_curve_amount),
@@ -212,13 +238,12 @@ func _update_dive_pass(delta: float) -> void:
 
 	# Gentle homing — keeps the dive credible if the player moves, without
 	# turning it into an aimbot lock.
-	var attack_dir = (_dive_start - player.global_position).normalized()
-	var desired_end = player.global_position - attack_dir * 30.0
-
+	var attack_dir: Vector3 = (_dive_start - player.global_position).normalized()
+	var desired_end: Vector3 = player.global_position - attack_dir * 30.0
 	_dive_end = _dive_end.lerp(desired_end, attack_homing * delta)
 
-	var mid = (_dive_start + _dive_end) * 0.5
-	mid.y -= 2.0          # slight dip only
+	var mid: Vector3 = (_dive_start + _dive_end) * 0.5
+	mid.y -= 2.0
 	mid += _dive_mid_offset
 	leader_pos = _quad_bezier(_dive_start, mid, _dive_end, eased)
 
@@ -232,11 +257,39 @@ func _begin_climb_pass() -> void:
 	_attack_sub = AttackSub.CLIMB
 	_sub_timer = 0.0
 	_climb_start = leader_pos
-	# Circle up high and off to a new angle before the next dive — the
-	# "flies high up, then comes back down" beat.
-	var angle: float = randf_range(0.0, TAU)
-	var radius: float = randf_range(20.0, 38.0)
-	_climb_end = player.global_position + Vector3(cos(angle) * radius, high_altitude, sin(angle) * radius)
+
+	# Vary WHERE the next dive comes from — left/right sweep, a steep high
+	# dive, a rear attack, or a low skim — so attacks don't all look alike.
+	var approach: ApproachType = (randi() % ApproachType.size()) as ApproachType
+	var base_angle: float = _angle_to_player()
+	var angle: float = base_angle
+	var altitude: float = high_altitude
+	var radius: float = randf_range(24.0, 42.0)
+
+	match approach:
+		ApproachType.LEFT:
+			angle = base_angle + PI * 0.5 + randf_range(-0.3, 0.3)
+			altitude = randf_range(26.0, 38.0)
+		ApproachType.RIGHT:
+			angle = base_angle - PI * 0.5 + randf_range(-0.3, 0.3)
+			altitude = randf_range(26.0, 38.0)
+		ApproachType.HIGH:
+			angle = randf_range(0.0, TAU)
+			altitude = randf_range(high_altitude, high_altitude + 20.0)
+			radius = randf_range(14.0, 24.0)
+		ApproachType.REAR:
+			angle = base_angle + PI + randf_range(-0.3, 0.3)
+			altitude = randf_range(20.0, 32.0)
+		ApproachType.LOW:
+			angle = randf_range(0.0, TAU)
+			altitude = randf_range(6.0, 12.0)
+			radius = randf_range(30.0, 46.0)
+
+	_climb_end = player.global_position + Vector3(cos(angle) * radius, altitude, sin(angle) * radius)
+
+func _angle_to_player() -> float:
+	var d: Vector3 = leader_pos - player.global_position
+	return atan2(d.z, d.x)
 
 func _update_climb_pass(delta: float) -> void:
 	_sub_timer += delta
@@ -262,7 +315,6 @@ func _record_history() -> void:
 	_history_write = (_history_write + 1) % _history_capacity
 
 ## Returns the leader's position from `delay_frames` physics steps ago.
-## Skulls use this to trail the leader like segments of a body.
 func get_history_position(delay_frames: int) -> Vector3:
 	var clamped_delay: int = clamp(delay_frames, 0, _history_capacity - 1)
 	var idx: int = (_history_write - 1 - clamped_delay) % _history_capacity
@@ -270,18 +322,36 @@ func get_history_position(delay_frames: int) -> Vector3:
 		idx += _history_capacity
 	return _history[idx]
 
-# ─── Spawning ───
+# ─── Wave spawning ───
 
 func _update_spawning(delta: float) -> void:
-	_spawn_timer += delta
-	if _spawn_timer < spawn_interval:
+	if _pending_spawns > 0:
+		_spawn_stagger_timer += delta
+		if _spawn_stagger_timer >= wave_spawn_stagger:
+			_spawn_stagger_timer = 0.0
+			_try_spawn_one()
 		return
-	_spawn_timer = 0.0
 
+	_wave_timer += delta
+	if _wave_timer < _next_wave_interval:
+		return
+	_wave_timer = 0.0
+	_next_wave_interval = randf_range(wave_interval_min, wave_interval_max)
+
+	var free_slots: int = 0
+	for taken in slot_taken:
+		if not taken:
+			free_slots += 1
+	if free_slots > 0:
+		_pending_spawns = min(randi_range(wave_min_size, wave_max_size), free_slots)
+
+func _try_spawn_one() -> void:
 	var slot: int = slot_taken.find(false)
 	if slot == -1:
+		_pending_spawns = 0
 		return
 	_spawn_skull(slot)
+	_pending_spawns -= 1
 
 func _spawn_skull(slot: int) -> void:
 	if skull_scene == null:

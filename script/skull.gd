@@ -1,17 +1,19 @@
 extends CharacterBody3D
 ## Skull — one segment of the flock/dragon.
 ## CALM: true boid behavior (cohesion + alignment + separation) layered on
-##   top of a loose, noise-driven personal orbit. Movement here is slow and
-##   majestic — low turn rate, wide gentle banking, no per-frame jitter.
-## WARNING: the whole flock rushes into a formation shape around the
-##   leader, at a set distance out in front of the player.
-## ATTACK: the leader now runs a whole dive+climb campaign (see Spawner),
-##   and each skull trails the leader's path *plus* a formation offset —
-##   a wing spread, not a single line. Skulls near the center of the wing
-##   pass through the player and hit; skulls further out whoosh past. High
-##   turn rate, shallow bank — tight and controlled, not floaty.
-## After an ATTACK campaign ends: scatters outward briefly, then drifts
-##   back into its calm orbit on its own.
+##   top of a loose, noise-driven personal orbit. Flock forces are
+##   low-pass filtered before use — this is what kills the jitter, since
+##   raw neighbor-based forces spike every time a nearby skull's position
+##   or velocity changes.
+## WARNING: the whole flock rushes into a wing-shaped formation around the
+##   leader, oriented toward the player, out at a set distance.
+## ATTACK: the leader runs a whole dive+climb campaign (see Spawner), and
+##   each skull trails the leader's path *plus* a formation offset that's
+##   oriented to the current flight direction — a wing spread, not a
+##   single line. Skulls near the center of the wing pass through the
+##   player and hit; skulls further out whoosh past by design.
+## After a campaign ends: scatters outward briefly, then drifts back into
+##   its calm orbit on its own.
 
 signal exploded(position: Vector3)
 
@@ -21,27 +23,32 @@ signal exploded(position: Vector3)
 @export var explosion_radius: float = 2.0
 @export var explosion_damage: float = 0.0   # touch already deals damage; splash is separate/optional
 
-@export var calm_speed: float = 16.0
-@export var warning_speed: float = 95.0     # extremely fast formation rush-in
-@export var attack_speed: float = 115.0     # fast, committed strike
-@export var recover_speed: float = 30.0
+@export var calm_speed: float = 28.0
+@export var warning_speed: float = 95.0      # extremely fast formation rush-in
+@export var attack_speed: float = 155.0      # fast, committed strike
+@export var recover_speed: float = 45.0
 
 # Turn/bank response is phase-based: slow and graceful while wandering,
-# snappy and locked-in while gathering/attacking.
+# still smooth but snappier while gathering/attacking.
 @export var turn_speed_calm: float = 2.2
-@export var turn_speed_attack: float = 11.0
-@export var max_bank_calm: float = 0.9       # radians — wide, graceful lean while wandering
-@export var max_bank_attack: float = 0.32    # radians — shallow, controlled lean while attacking
+@export var turn_speed_attack: float = 7.5
+@export var max_bank_calm: float = 0.9        # radians — wide, graceful lean while wandering
+@export var max_bank_attack: float = 0.55     # radians — noticeable lean while attacking
 
 @export var model_forward_correction: float = 0.0
 
 @export var separation_radius: float = 2.2
 @export var separation_strength: float = 7.0
-@export var neighbor_radius: float = 12.0   # how far a skull "sees" flockmates
+@export var neighbor_radius: float = 12.0
 @export var cohesion_strength: float = 1.8
 @export var alignment_strength: float = 1.3
 
-@export var recover_duration: float = 1.6  # scatter time right after a campaign ends
+@export var recover_duration: float = 1.6
+
+@export var scream_trigger_distance: float = 15.0
+@export var scream_reset_distance: float = 24.0
+
+@onready var scream: AudioStreamPlayer3D = get_node_or_null("scream")
 
 const GOLDEN_ANGLE: float = 2.39996323
 
@@ -66,13 +73,16 @@ var _noise: FastNoiseLite
 var _drift_offset: float
 var _turn_indiv_factor: float
 var _bank_indiv_factor: float
+var _speed_indiv_factor: float
 
 var _last_phase: int = -1
 var _recover_timer: float = 0.0
 var _scatter_target: Vector3 = Vector3.ZERO
+var _has_screamed: bool = false
 
 var _prev_flat_dir: Vector3 = Vector3.FORWARD
 var _roll: float = 0.0
+var _smoothed_flock: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
 	motion_mode = MOTION_MODE_FLOATING
@@ -82,8 +92,6 @@ func _ready() -> void:
 	if _noise == null:
 		_init_personality()
 
-	# Optional wing-flap hook: if the model has an AnimationPlayer with a
-	# "fly" animation, loop it. Safe no-op if it doesn't exist.
 	var anim := get_node_or_null("AnimationPlayer")
 	if anim and anim.has_animation("fly"):
 		anim.play("fly")
@@ -112,6 +120,7 @@ func _init_personality() -> void:
 	_drift_offset = s * GOLDEN_ANGLE * 3.0
 	_turn_indiv_factor = 0.94 + fmod(s * 0.14, 0.12)
 	_bank_indiv_factor = 0.92 + fmod(s * 0.11, 0.16)
+	_speed_indiv_factor = 0.9 + fmod(s * 0.071, 0.22)
 
 func _physics_process(delta: float) -> void:
 	if state == State.EXPLODING:
@@ -124,13 +133,19 @@ func _physics_process(delta: float) -> void:
 
 	_calm_time += delta
 	_track_phase_change(delta)
+	_update_scream()
 
 	var target: Vector3 = _current_target()
 	var speed: float = _current_speed()
 	var turn_rate: float = _current_turn_rate()
 
+	# Low-pass filter the flock forces so a neighbor suddenly entering or
+	# leaving range doesn't yank the steering direction around every frame.
+	var raw_flock: Vector3 = _flock_forces()
+	_smoothed_flock = _smoothed_flock.lerp(raw_flock, 3.0 * delta)
+
 	var steer: Vector3 = (target - global_position).normalized() * speed
-	steer += _flock_forces()
+	steer += _smoothed_flock
 
 	velocity = velocity.lerp(steer, turn_rate * delta)
 
@@ -148,10 +163,22 @@ func _physics_process(delta: float) -> void:
 
 	_update_rotation(delta, turn_rate)
 
+## Plays the scream once as a skull closes in on the player, then resets
+## once it's flown back out past scream_reset_distance — so it fires again
+## on the next approach (e.g. once per dive pass) instead of spamming.
+func _update_scream() -> void:
+	if scream == null or player == null:
+		return
+	var dist: float = global_position.distance_to(player.global_position)
+	if dist < scream_trigger_distance and not _has_screamed:
+		scream.play()
+		_has_screamed = true
+	elif dist > scream_reset_distance:
+		_has_screamed = false
+
 ## Closest-point-on-segment check between last frame's position and this
-## frame's. A plain distance check on the current frame alone lets a fast
-## dive tunnel straight past the player without ever registering a hit —
-## this catches it even if the skull crosses the whole gap in one frame.
+## frame's, so a fast dive can't tunnel straight past the player without
+## registering a hit.
 func _check_player_touch(prev_pos: Vector3) -> bool:
 	var seg: Vector3 = global_position - prev_pos
 	var closest: Vector3
@@ -205,19 +232,17 @@ func _current_target() -> Vector3:
 	if spawner.phase == Phase.CALM:
 		return _calm_target()
 
+	var forward: Vector3 = spawner.get_leader_forward()
+
 	if spawner.phase == Phase.WARNING:
-		# Rush into a formation slot around the leader, at a set distance
-		# out from the player — the "gather up fast" moment.
-		return spawner.leader_pos + spawner.get_formation_offset(slot_index, spawner.formation_radius)
+		return spawner.leader_pos + spawner.get_formation_offset(slot_index, spawner.formation_radius, forward)
 
 	# ATTACK: trail the leader's dive path like a segment of a serpent's
-	# body, spread into a wing formation. Skulls near the center of the
-	# wing pass through the player and hit; ones further out whoosh past —
-	# that's what makes it read as a flock, not a single-file line, and
-	# gives the "some hit, not all" feel on purpose.
+	# body, spread into a wing formation. Center-slot skulls pass through
+	# the player and hit; outer ones whoosh past — some, not all, on purpose.
 	var delay_frames: int = slot_index * chain_gap_frames
 	var base_pos: Vector3 = spawner.get_history_position(delay_frames)
-	return base_pos + spawner.get_formation_offset(slot_index, spawner.attack_formation_radius)
+	return base_pos + spawner.get_formation_offset(slot_index, spawner.attack_formation_radius, forward)
 
 func _calm_target() -> Vector3:
 	var drift: float = 1.0 + _noise.get_noise_1d(_calm_time * 0.05 + _drift_offset) * 0.2
@@ -231,15 +256,18 @@ func _calm_target() -> Vector3:
 	)
 
 func _current_speed() -> float:
+	var base: float
 	if _recover_timer > 0.0:
-		return recover_speed
-	if spawner == null:
-		return calm_speed
-	if spawner.phase == Phase.WARNING:
-		return warning_speed
-	if spawner.phase == Phase.ATTACK:
-		return attack_speed
-	return calm_speed
+		base = recover_speed
+	elif spawner == null:
+		base = calm_speed
+	elif spawner.phase == Phase.WARNING:
+		base = warning_speed
+	elif spawner.phase == Phase.ATTACK:
+		base = attack_speed
+	else:
+		base = calm_speed
+	return base * _speed_indiv_factor
 
 func _current_turn_rate() -> float:
 	var base_turn: float = turn_speed_calm
@@ -276,6 +304,10 @@ func _flock_forces() -> Vector3:
 		var avg_vel: Vector3 = alignment_sum / neighbor_count
 		if avg_vel.length() > 0.01:
 			force += avg_vel.normalized() * alignment_strength
+
+	# Clamp so a sudden close encounter can't spike the steering direction.
+	if force.length() > 10.0:
+		force = force.normalized() * 10.0
 
 	return force
 
@@ -347,4 +379,3 @@ func explode() -> void:
 
 	await get_tree().create_timer(1.0).timeout
 	queue_free()
-	
