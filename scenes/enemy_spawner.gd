@@ -3,8 +3,8 @@ extends Node3D
 ## Owns the leader path (the head of the flock), the phase state machine,
 ## and a short rolling history of the leader's recent positions so skulls
 ## can trail behind it like segments of a serpent's body. Skulls read
-## leader_pos / phase / history off this node every frame — nothing is
-## pushed into them.
+## leader_pos / phase / history / formation offsets off this node every
+## frame — nothing is pushed into them.
 
 @export var skull_scene: PackedScene
 @export var max_skulls: int = 18
@@ -17,16 +17,22 @@ extends Node3D
 @export var chain_gap_frames: int = 5
 
 # ─── Calm phase: organic wandering ───
-@export var calm_wander_speed: float = 9.0
-@export var calm_wander_scale: float = 24.0
+# Noise-driven rather than sine-driven, so the leader's path never
+# retraces itself.
+@export var calm_wander_speed: float = 0.12   # how fast we walk across the noise field
+@export var calm_wander_scale: float = 40.0
 @export var calm_duration_min: float = 8.0
 @export var calm_duration_max: float = 13.0
 
-# ─── Warning phase: rapid gather + hold ───
+# ─── Warning phase: the flock rushes into formation ───
 @export var warning_duration: float = 1.4
+@export var formation_distance_from_player: float = 30.0  # how far out the formation forms
+@export var formation_radius: float = 7.0
+@export var formation_flatten: float = 0.55   # <1 flattens the sphere into a wing-like shape
 
 # ─── Attack phase: one fast committed pass ───
 @export var attack_duration: float = 2.2
+@export var attack_curve_amount: float = 12.0  # how much the dash bows away from a straight line
 
 enum Phase { CALM, WARNING, ATTACK }
 enum AttackType { SWEEP, DIVE }
@@ -41,9 +47,14 @@ var _time: float = 0.0
 var _attack_type: AttackType = AttackType.SWEEP
 var _attack_start: Vector3 = Vector3.ZERO
 var _attack_end: Vector3 = Vector3.ZERO
+var _attack_mid_offset: Vector3 = Vector3.ZERO
 var _attack_phase: float = 0.0
 
 var _warning_point: Vector3 = Vector3.ZERO
+
+# Noise field for the leader's calm wander — replaces the old sine-sum,
+# never repeats exactly no matter how long CALM runs.
+var _noise: FastNoiseLite
 
 # Ring buffer of leader positions, for the chain-follow effect.
 var _history: Array[Vector3] = []
@@ -65,6 +76,10 @@ func _ready() -> void:
 	_history.fill(leader_pos)
 
 	_calm_duration = randf_range(calm_duration_min, calm_duration_max)
+
+	_noise = FastNoiseLite.new()
+	_noise.seed = randi()
+	_noise.frequency = 1.0
 
 	slot_taken.resize(max_skulls)
 	slot_taken.fill(false)
@@ -90,14 +105,17 @@ func _physics_process(delta: float) -> void:
 	if phase == Phase.CALM:
 		_update_spawning(delta)
 
-# ─── CALM: layered sine wander, feels organic rather than mechanical ───
+# ─── CALM: noise-driven wander, feels organic and never repeats ───
 
 func _update_calm(delta: float) -> void:
 	var p: Vector3 = player.global_position
+	var t: float = _time * calm_wander_speed
+	# Three separate offsets into the same noise field decorrelate the
+	# axes so it doesn't just look like one wave copied three times.
 	leader_pos = p + Vector3(
-		sin(_time * 0.35) * calm_wander_scale + sin(_time * 0.9) * 4.0,
-		14.0 + sin(_time * 0.5) * 5.0 + cos(_time * 1.3) * 1.5,
-		cos(_time * 0.28) * calm_wander_scale + cos(_time * 0.8) * 3.0
+		_noise.get_noise_2d(t, 0.0) * calm_wander_scale,
+		20.0 + _noise.get_noise_2d(t, 100.0) * 5.0,
+		_noise.get_noise_2d(t, 200.0) * calm_wander_scale
 	)
 
 	_phase_timer += delta
@@ -107,21 +125,42 @@ func _update_calm(delta: float) -> void:
 func _begin_warning() -> void:
 	phase = Phase.WARNING
 	_phase_timer = 0.0
-	_warning_point = player.global_position + Vector3(0.0, 13.0, -14.0)
+	var to_player: Vector3 = (player.global_position - leader_pos)
+	to_player.y = 0.0
+	# Fall back to "in front of" if the leader is right on top of the player.
+	var approach_dir: Vector3 = to_player.normalized() if to_player.length() > 0.5 else Vector3.BACK
+	_warning_point = player.global_position - approach_dir * formation_distance_from_player + Vector3(0, 13, 0)
 	# Hook a warning roar/sound here, e.g.: $WarningSound.play()
 
-# ─── WARNING: leader holds nearly still, so the trailing chain naturally
-#     bunches up tight behind it — no separate "compression" logic needed.
+# ─── WARNING: leader snaps toward the formation point fast, so the whole
+#     flock (each skull rushing to its own formation offset) reads as a
+#     single sudden "gather up" rather than a slow drift into place.
 
 func _update_warning(delta: float) -> void:
-	leader_pos = leader_pos.lerp(_warning_point, 6.0 * delta)
+	leader_pos = leader_pos.lerp(_warning_point, 10.0 * delta)
 	leader_pos.y += sin(_time * 6.0) * 0.05   # tiny idle bob, doesn't look frozen
 
 	_phase_timer += delta
 	if _phase_timer >= warning_duration:
 		_begin_attack()
 
-# ─── ATTACK: one fast, committed sweep or dive through the player ───
+## Deterministic per-slot offset used to arrange skulls into a formation
+## around the leader during WARNING. A flattened fibonacci-sphere spread —
+## evenly distributed, stable frame to frame, no jitter or overlap — so it
+## reads as a deliberate wing/spearhead shape rather than a random clump.
+func get_formation_offset(slot: int) -> Vector3:
+	var n: float = float(max(max_skulls, 1))
+	var i: float = float(slot) + 0.5
+	var phi: float = acos(clamp(1.0 - 2.0 * i / n, -1.0, 1.0))
+	var theta: float = PI * (1.0 + sqrt(5.0)) * i
+	return Vector3(
+		sin(phi) * cos(theta) * formation_radius,
+		cos(phi) * formation_radius * formation_flatten,
+		sin(phi) * sin(theta) * formation_radius
+	)
+
+# ─── ATTACK: one fast, committed sweep or dive through the player, bowed
+#     into a curve rather than a straight lerp so it reads as a swoop.
 
 func _begin_attack() -> void:
 	phase = Phase.ATTACK
@@ -132,11 +171,17 @@ func _begin_attack() -> void:
 	var p: Vector3 = player.global_position
 	if _attack_type == AttackType.SWEEP:
 		var side: float = 1.0 if randf() < 0.5 else -1.0
-		_attack_start = p + Vector3(-side * 32.0, 9.0, -6.0)
-		_attack_end = p + Vector3(side * 32.0, 9.0, -6.0)
+		_attack_start = p + Vector3(-side * 55.0, 9.0, -20.0)
+		_attack_end = p + Vector3(side * 55.0, 9.0, -20.0)
 	else:
-		_attack_start = p + Vector3(0.0, 24.0, -28.0)
-		_attack_end = p + Vector3(0.0, 4.0, 22.0)
+		_attack_start = p + Vector3(0.0, 30.0, -50.0)
+		_attack_end = p + Vector3(0.0, 4.0, 35.0)
+
+	_attack_mid_offset = Vector3(
+		randf_range(-attack_curve_amount, attack_curve_amount),
+		randf_range(-attack_curve_amount * 0.4, attack_curve_amount * 0.4),
+		randf_range(-attack_curve_amount, attack_curve_amount)
+	)
 
 	leader_pos = _attack_start
 
@@ -144,12 +189,17 @@ func _update_attack(delta: float) -> void:
 	_attack_phase += delta / attack_duration
 	var t: float = clamp(_attack_phase, 0.0, 1.0)
 	var eased: float = t * t * (3.0 - 2.0 * t)
-	leader_pos = _attack_start.lerp(_attack_end, eased)
+
+	var mid: Vector3 = (_attack_start + _attack_end) * 0.5 + _attack_mid_offset
+	leader_pos = _quad_bezier(_attack_start, mid, _attack_end, eased)
 
 	if _attack_phase >= 1.0:
 		phase = Phase.CALM
 		_phase_timer = 0.0
 		_calm_duration = randf_range(calm_duration_min, calm_duration_max)
+
+func _quad_bezier(a: Vector3, b: Vector3, c: Vector3, t: float) -> Vector3:
+	return a.lerp(b, t).lerp(b.lerp(c, t), t)
 
 # ─── History ring buffer ───
 
