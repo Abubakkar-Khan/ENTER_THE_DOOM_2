@@ -61,6 +61,7 @@ var score := 0
 
 @onready var game_timer: Timer = $Timer
 @onready var timer_label: Label = $HUD/Timer_Label
+@onready var camera: Camera3D = $Head/Camera3D
 
 func _ready() -> void:
 	current_health = max_health
@@ -111,9 +112,12 @@ func take_damage(amount: float):
 	print("Health: ", int(current_health))
 	health_bar.health = current_health
 	
+	# ADD THIS LINE:
+	shake_camera(0.15, 0.25)
+	
 	if current_health <= 0:
 		die()
-
+		
 func die():
 	if is_dead:
 		return
@@ -276,3 +280,22 @@ func _on_timer_timeout():
 func add_score(points):
 	score += points
 	score_label.text = str(score)
+
+
+func shake_camera(amount: float = 0.15, duration: float = 0.2) -> void:
+	if not camera:
+		return
+	
+	var tween := create_tween()
+	var steps := 4
+	var step_time := duration / float(steps)
+	
+	for i in range(steps):
+		var offset := Vector3(
+			randf_range(-amount, amount),
+			randf_range(-amount, amount),
+			0.0
+		)
+		tween.tween_property(camera, "position", offset, step_time)
+	
+	tween.tween_property(camera, "position", Vector3.ZERO, step_time)

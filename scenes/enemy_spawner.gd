@@ -138,7 +138,8 @@ func _update_calm(delta: float) -> void:
 		14.0 + _noise.get_noise_2d(t, 100.0) * 5.0,
 		_noise.get_noise_2d(t, 200.0) * calm_wander_scale
 	)
-
+	leader_pos.y = max(leader_pos.y, player.global_position.y + 8.0)
+	
 	_phase_timer += delta
 	if _phase_timer >= _calm_duration:
 		_begin_warning()
@@ -154,7 +155,8 @@ func _begin_warning() -> void:
 func _update_warning(delta: float) -> void:
 	leader_pos = leader_pos.lerp(_warning_point, 10.0 * delta)
 	leader_pos.y += sin(_time * 6.0) * 0.05
-
+	leader_pos.y = max(leader_pos.y, player.global_position.y + 8.0)
+	
 	_phase_timer += delta
 	if _phase_timer >= warning_duration:
 		_begin_attack_campaign()
@@ -244,8 +246,14 @@ func _update_dive_pass(delta: float) -> void:
 
 	var mid: Vector3 = (_dive_start + _dive_end) * 0.5
 	mid.y -= 2.0
+
+	# Never allow the dive to scrape the ground
+	mid.y = max(mid.y, player.global_position.y + 5.0)
+
 	mid += _dive_mid_offset
+
 	leader_pos = _quad_bezier(_dive_start, mid, _dive_end, eased)
+	leader_pos.y = max(leader_pos.y, player.global_position.y + 5.0)
 
 	if t >= 1.0:
 		if _campaign_timer >= _campaign_duration:
@@ -296,6 +304,7 @@ func _update_climb_pass(delta: float) -> void:
 	var t: float = clamp(_sub_timer / pass_climb_duration, 0.0, 1.0)
 	var eased: float = t * t * (3.0 - 2.0 * t)
 	leader_pos = _climb_start.lerp(_climb_end, eased)
+	leader_pos.y = max(leader_pos.y, player.global_position.y + 5.0)
 
 	if t >= 1.0:
 		_begin_dive_pass()
