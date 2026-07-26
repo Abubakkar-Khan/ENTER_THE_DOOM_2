@@ -7,34 +7,84 @@ extends Node3D
 ## them.
 ##
 ## ATTACK is a whole "campaign": the leader dives through/near the player,
-## climbs back up high, circles to a new angle (left/right/high/rear/low),
-## and dives again — repeating for up to ~30 seconds before settling back
-## to CALM. Each dive overshoots well past the player so it reads as a
-## long sweeping pass, not a stab.
+## climbs back up in a decaying SPIRAL (not a straight elevator), circles
+## to a new angle (left/right/high/rear/low), and dives again — repeating
+## for up to ~30 seconds before settling back to CALM. Each dive overshoots
+## well past the player so it reads as a long sweeping pass, not a stab.
+##
+## BREATHING: formation radius is never fixed. It oscillates between tight
+## and wide via get_formation_radius()/get_attack_formation_radius(), with
+## occasional outward "explode" pulses — the flock looks alive even when
+## nothing else is changing.
+##
+## CONTINUOUS PRESSURE: CALM isn't a true rest state. The leader periodically
+## feints closer to the player on a noise curve, and the time spent in CALM
+## shrinks the longer the encounter runs, so the player is rarely fully safe.
+##
+## DYNAMIC LEADER: a small noise-driven jitter is layered onto leader_pos
+## in WARNING/ATTACK so the path never reads as a perfectly smooth spline.
 
 @export var skull_scene: PackedScene
-@export var max_skulls: int = 18
+@export var max_skulls: int = 15          # the "flock" — wing formation, dive campaigns
 @export var player: Node3D
 @export var chain_gap_frames: int = 5
 
-# ─── Wave spawning — groups arrive together, staggered, not a trickle ───
-@export var wave_min_size: int = 8
-@export var wave_max_size: int = 18
+# ─── Wave spawning — a wave "portal" opens and releases several bursts
+#     with a beat between each, then closes, instead of one steady trickle ───
+@export var wave_min_size: int = 6
+@export var wave_max_size: int = 15
 @export var wave_interval_min: float = 5.0
 @export var wave_interval_max: float = 8.0
-@export var wave_spawn_stagger: float = 0.25   # seconds between individual spawns within a wave
+@export var wave_spawn_stagger: float = 0.25   # seconds between individual spawns within a burst
+@export var wave_burst_min: int = 3            # skulls per burst
+@export var wave_burst_max: int = 6
+@export var wave_burst_pause: float = 0.7      # pause between bursts within a wave
 
-# ─── Calm phase: organic wandering, never stops ───
+# ─── Solo skulls — a second population (~15) that ignores the flock/
+#     dragon entirely. Each spawns FAR out in a random direction around
+#     the player, flies straight in so it can be seen and tracked coming,
+#     makes one committed strike pass, then peels off far away again and
+#     loops. These run all the time, independent of CALM/WARNING/ATTACK. ───
+@export var solo_max: int = 15
+@export var solo_spawn_distance_min: float = 90.0
+@export var solo_spawn_distance_max: float = 160.0
+@export var solo_trickle_interval_min: float = 1.0
+@export var solo_trickle_interval_max: float = 3.0
+@export var solo_approach_speed: float = 42.0
+@export var solo_strike_speed: float = 150.0
+@export var solo_retreat_speed: float = 70.0
+@export var solo_strike_trigger_distance: float = 55.0
+@export var solo_overshoot_min: float = 20.0
+@export var solo_overshoot_max: float = 45.0
+@export var solo_retreat_distance_min: float = 100.0
+@export var solo_retreat_distance_max: float = 170.0
+
+# ─── Calm phase: organic wandering, never stops, never fully safe ───
 @export var calm_wander_speed: float = 1.12
 @export var calm_wander_scale: float = 30.0
 @export var calm_duration_min: float = 2.0
 @export var calm_duration_max: float = 5.0
+@export var calm_feint_strength: float = 0.6   # how much a feint tightens the wander + drops altitude
+
+# Continuous pressure: as the fight goes on, CALM windows shrink toward
+# these floors so the player gets less and less of a breather.
+@export var escalation_time: float = 90.0
+@export var calm_duration_min_late: float = 0.8
+@export var calm_duration_max_late: float = 1.8
 
 # ─── Warning phase: the flock rushes into formation ───
 @export var warning_duration: float = 2.4
 @export var formation_distance_from_player: float = 35.0
 @export var formation_radius: float = 10.0
 @export var formation_flatten: float = 0.5   # <1 flattens into a wing shape
+
+# ─── Flock breathing — formation radius pulses wide/tight over time, with
+#     rare bigger "explode outward" pulses ───
+@export var breath_min_scale: float = 0.55
+@export var breath_max_scale: float = 1.35
+@export var breath_speed: float = 0.18
+@export var breath_pulse_chance_per_sec: float = 0.02
+@export var breath_pulse_duration: float = 0.6
 
 # ─── Attack campaign: repeated dive + climb passes, up to ~30s ───
 @export var attack_campaign_duration_min: float = 20.0
@@ -48,6 +98,14 @@ extends Node3D
 @export var attack_formation_radius: float = 14.0  # wing-spread while diving — center skulls fly
 													 # closest to the player, outer ones pass wide
 @export var attack_homing: float = 1.6
+
+# Spiral recovery: the climb back to altitude bulges out into a decaying
+# helix instead of a straight lerp — reads as a bird banking around, not
+# an elevator.
+@export var spiral_radius: float = 6.0
+@export var spiral_turns: float = 1.5
+
+@export var leader_jitter_amount: float = 0.6
 
 enum Phase { CALM, WARNING, ATTACK }
 enum AttackSub { DIVE, CLIMB }
@@ -70,6 +128,7 @@ var _dive_end: Vector3 = Vector3.ZERO
 var _dive_mid_offset: Vector3 = Vector3.ZERO
 var _climb_start: Vector3 = Vector3.ZERO
 var _climb_end: Vector3 = Vector3.ZERO
+var _climb_spiral_phase: float = 0.0
 
 var _warning_point: Vector3 = Vector3.ZERO
 var _approach_dir: Vector3 = Vector3.BACK
@@ -85,6 +144,15 @@ var _wave_timer: float = 0.0
 var _next_wave_interval: float = 8.0
 var _pending_spawns: int = 0
 var _spawn_stagger_timer: float = 0.0
+var _burst_queue: Array[int] = []
+var _burst_pause_timer: float = 0.0
+
+var solo_slot_taken: Array[bool] = []
+var _solo_trickle_timer: float = 0.0
+var _solo_next_trickle: float = 2.0
+
+var _breath_pulse_timer: float = 0.0
+var _breath_pulse_strength: float = 0.0
 
 func _ready() -> void:
 	if player == null:
@@ -107,6 +175,10 @@ func _ready() -> void:
 	slot_taken.resize(max_skulls)
 	slot_taken.fill(false)
 
+	solo_slot_taken.resize(solo_max)
+	solo_slot_taken.fill(false)
+	_solo_next_trickle = randf_range(solo_trickle_interval_min, solo_trickle_interval_max)
+
 func _physics_process(delta: float) -> void:
 	if player == null:
 		player = get_tree().get_first_node_in_group("player")
@@ -114,6 +186,7 @@ func _physics_process(delta: float) -> void:
 			return
 
 	_time += delta
+	_update_breathing(delta)
 
 	match phase:
 		Phase.CALM:
@@ -128,18 +201,63 @@ func _physics_process(delta: float) -> void:
 	if phase == Phase.CALM:
 		_update_spawning(delta)
 
-# ─── CALM: noise-driven wander — organic, never repeats, never stops ───
+	_update_solo_spawning(delta)
+
+# ─── Flock breathing ───
+
+func _update_breathing(delta: float) -> void:
+	if _breath_pulse_timer > 0.0:
+		_breath_pulse_timer -= delta
+	elif randf() < breath_pulse_chance_per_sec * delta:
+		_breath_pulse_timer = breath_pulse_duration
+		_breath_pulse_strength = randf_range(1.4, 1.9)
+
+func get_formation_scale() -> float:
+	var base: float = lerp(breath_min_scale, breath_max_scale, (sin(_time * breath_speed) + 1.0) * 0.5)
+	if _breath_pulse_timer > 0.0:
+		base = max(base, _breath_pulse_strength)
+	return base
+
+func get_formation_radius() -> float:
+	return formation_radius * get_formation_scale()
+
+func get_attack_formation_radius() -> float:
+	return attack_formation_radius * get_formation_scale()
+
+## Small noise-driven wobble layered onto leader_pos so the flight path
+## never reads as a perfectly smooth spline.
+func _leader_jitter(amplitude: float) -> Vector3:
+	return Vector3(
+		_noise.get_noise_1d(_time * 3.0 + 11.0),
+		_noise.get_noise_1d(_time * 3.0 + 22.0) * 0.4,
+		_noise.get_noise_1d(_time * 3.0 + 33.0)
+	) * amplitude
+
+## How far into the encounter we are, 0 → 1, used to shrink CALM windows
+## over time so the flock keeps applying pressure as the fight goes on.
+func _difficulty_t() -> float:
+	return clamp(_time / max(escalation_time, 0.01), 0.0, 1.0)
+
+# ─── CALM: noise-driven wander — organic, never repeats, occasionally
+#     feints in closer so the player never fully relaxes ───
 
 func _update_calm(delta: float) -> void:
 	var p: Vector3 = player.global_position
 	var t: float = _time * calm_wander_speed
+
+	# Feint: a slow noise curve that occasionally pulls the wander tighter
+	# and lower, reading as the flock "leaning in" before drifting back out.
+	var feint: float = clamp(_noise.get_noise_2d(t * 0.3, 300.0) * 0.5 + 0.5, 0.0, 1.0)
+	feint = pow(feint, 2.0)   # keep feints rare/short rather than half-time
+	var wander_scale: float = calm_wander_scale * lerp(1.0, 1.0 - calm_feint_strength, feint)
+
 	leader_pos = p + Vector3(
-		_noise.get_noise_2d(t, 0.0) * calm_wander_scale,
-		14.0 + _noise.get_noise_2d(t, 100.0) * 5.0,
-		_noise.get_noise_2d(t, 200.0) * calm_wander_scale
+		_noise.get_noise_2d(t, 0.0) * wander_scale,
+		14.0 + _noise.get_noise_2d(t, 100.0) * 5.0 - feint * calm_feint_strength * 6.0,
+		_noise.get_noise_2d(t, 200.0) * wander_scale
 	)
 	leader_pos.y = max(leader_pos.y, player.global_position.y + 8.0)
-	
+
 	_phase_timer += delta
 	if _phase_timer >= _calm_duration:
 		_begin_warning()
@@ -155,8 +273,9 @@ func _begin_warning() -> void:
 func _update_warning(delta: float) -> void:
 	leader_pos = leader_pos.lerp(_warning_point, 10.0 * delta)
 	leader_pos.y += sin(_time * 6.0) * 0.05
+	leader_pos += _leader_jitter(leader_jitter_amount)
 	leader_pos.y = max(leader_pos.y, player.global_position.y + 8.0)
-	
+
 	_phase_timer += delta
 	if _phase_timer >= warning_duration:
 		_begin_attack_campaign()
@@ -265,6 +384,7 @@ func _begin_climb_pass() -> void:
 	_attack_sub = AttackSub.CLIMB
 	_sub_timer = 0.0
 	_climb_start = leader_pos
+	_climb_spiral_phase = randf_range(0.0, TAU)
 
 	# Vary WHERE the next dive comes from — left/right sweep, a steep high
 	# dive, a rear attack, or a low skim — so attacks don't all look alike.
@@ -299,11 +419,29 @@ func _angle_to_player() -> float:
 	var d: Vector3 = leader_pos - player.global_position
 	return atan2(d.z, d.x)
 
+## Recovery isn't a straight elevator ride: a decaying helix is layered
+## around the climb path, peaking mid-climb and settling to zero right as
+## the leader arrives at the next approach point — reads as a banking
+## spiral rather than a snap-to-altitude.
 func _update_climb_pass(delta: float) -> void:
 	_sub_timer += delta
 	var t: float = clamp(_sub_timer / pass_climb_duration, 0.0, 1.0)
 	var eased: float = t * t * (3.0 - 2.0 * t)
-	leader_pos = _climb_start.lerp(_climb_end, eased)
+	var base_pos: Vector3 = _climb_start.lerp(_climb_end, eased)
+
+	var fwd: Vector3 = (_climb_end - _climb_start)
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.UP
+	var right: Vector3 = fwd.cross(Vector3.UP)
+	if right.length() < 0.01:
+		right = Vector3.RIGHT
+	right = right.normalized()
+	var up: Vector3 = right.cross(fwd).normalized()
+
+	var spiral_amount: float = sin(t * PI)   # 0 at both ends, peaks mid-climb
+	var angle: float = _climb_spiral_phase + t * spiral_turns * TAU
+	var spiral_offset: Vector3 = (right * cos(angle) + up * sin(angle)) * spiral_radius * spiral_amount
+
+	leader_pos = base_pos + spiral_offset + _leader_jitter(leader_jitter_amount)
 	leader_pos.y = max(leader_pos.y, player.global_position.y + 5.0)
 
 	if t >= 1.0:
@@ -312,7 +450,13 @@ func _update_climb_pass(delta: float) -> void:
 func _end_attack_campaign() -> void:
 	phase = Phase.CALM
 	_phase_timer = 0.0
-	_calm_duration = randf_range(calm_duration_min, calm_duration_max)
+
+	# Continuous pressure: CALM windows shrink toward a floor as the
+	# encounter runs longer, so breathers get shorter and shorter.
+	var dt: float = _difficulty_t()
+	var lo: float = lerp(calm_duration_min, calm_duration_min_late, dt)
+	var hi: float = lerp(calm_duration_max, calm_duration_max_late, dt)
+	_calm_duration = randf_range(lo, hi)
 
 func _quad_bezier(a: Vector3, b: Vector3, c: Vector3, t: float) -> Vector3:
 	return a.lerp(b, t).lerp(b.lerp(c, t), t)
@@ -331,7 +475,8 @@ func get_history_position(delay_frames: int) -> Vector3:
 		idx += _history_capacity
 	return _history[idx]
 
-# ─── Wave spawning ───
+# ─── Wave spawning: a "portal" opens, releases several bursts back to
+#     back with a short beat between each, then closes ───
 
 func _update_spawning(delta: float) -> void:
 	if _pending_spawns > 0:
@@ -339,6 +484,13 @@ func _update_spawning(delta: float) -> void:
 		if _spawn_stagger_timer >= wave_spawn_stagger:
 			_spawn_stagger_timer = 0.0
 			_try_spawn_one()
+		return
+
+	if _burst_queue.size() > 0:
+		_burst_pause_timer += delta
+		if _burst_pause_timer >= wave_burst_pause:
+			_burst_pause_timer = 0.0
+			_pending_spawns = _burst_queue.pop_front()
 		return
 
 	_wave_timer += delta
@@ -351,13 +503,31 @@ func _update_spawning(delta: float) -> void:
 	for taken in slot_taken:
 		if not taken:
 			free_slots += 1
-	if free_slots > 0:
-		_pending_spawns = min(randi_range(wave_min_size, wave_max_size), free_slots)
+	if free_slots <= 0:
+		return
+
+	var total: int = min(randi_range(wave_min_size, wave_max_size), free_slots)
+	_burst_queue = _split_into_bursts(total)
+	if _burst_queue.size() > 0:
+		_pending_spawns = _burst_queue.pop_front()
+
+## Splits a wave's total skull count into a few uneven bursts (e.g.
+## 5 / 4 / 6) so a wave reads as "portal opens, several pulses, closes"
+## instead of one long steady trickle.
+func _split_into_bursts(total: int) -> Array[int]:
+	var bursts: Array[int] = []
+	var remaining: int = total
+	while remaining > 0:
+		var chunk: int = min(remaining, randi_range(wave_burst_min, wave_burst_max))
+		bursts.append(chunk)
+		remaining -= chunk
+	return bursts
 
 func _try_spawn_one() -> void:
 	var slot: int = slot_taken.find(false)
 	if slot == -1:
 		_pending_spawns = 0
+		_burst_queue.clear()
 		return
 	_spawn_skull(slot)
 	_pending_spawns -= 1
@@ -375,6 +545,52 @@ func _spawn_skull(slot: int) -> void:
 	if skull.has_method("initialize"):
 		skull.initialize(self, player, slot, chain_gap_frames)
 
-func notify_skull_died(slot: int) -> void:
-	if slot >= 0 and slot < slot_taken.size():
-		slot_taken[slot] = false
+## Solo skulls trickle in continuously (independent of CALM/WARNING/ATTACK)
+## up to solo_max at once, each spawned far out in a random direction so
+## the player can see and track them closing in rather than having them
+## pop in on top of them.
+func _update_solo_spawning(delta: float) -> void:
+	_solo_trickle_timer += delta
+	if _solo_trickle_timer < _solo_next_trickle:
+		return
+
+	var slot: int = solo_slot_taken.find(false)
+	if slot == -1:
+		return
+
+	_solo_trickle_timer = 0.0
+	_solo_next_trickle = randf_range(solo_trickle_interval_min, solo_trickle_interval_max)
+	_spawn_solo_skull(slot)
+
+func _spawn_solo_skull(slot: int) -> void:
+	if skull_scene == null:
+		return
+
+	solo_slot_taken[slot] = true
+
+	var skull := skull_scene.instantiate()
+	skull.global_position = random_far_point()
+	get_tree().current_scene.add_child(skull)
+
+	if skull.has_method("initialize_solo"):
+		skull.initialize_solo(self, player, slot)
+
+## A point far out from the player in a random compass direction and a
+## modest random elevation — used both to spawn solo skulls and to send
+## them somewhere far away again after a strike pass.
+func random_far_point() -> Vector3:
+	var dist: float = randf_range(solo_spawn_distance_min, solo_spawn_distance_max)
+	var azimuth: float = randf_range(0.0, TAU)
+	var elevation: float = randf_range(-0.1, 0.5)
+	var horiz: float = cos(elevation)
+	var dir: Vector3 = Vector3(cos(azimuth) * horiz, sin(elevation), sin(azimuth) * horiz)
+	var base: Vector3 = (player.global_position if player else global_position) + Vector3(0, 10, 0)
+	return base + dir * dist
+
+func notify_skull_died(slot: int, is_solo: bool = false) -> void:
+	if is_solo:
+		if slot >= 0 and slot < solo_slot_taken.size():
+			solo_slot_taken[slot] = false
+	else:
+		if slot >= 0 and slot < slot_taken.size():
+			slot_taken[slot] = false

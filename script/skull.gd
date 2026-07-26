@@ -11,7 +11,16 @@ extends CharacterBody3D
 ##   each skull trails the leader's path *plus* a formation offset that's
 ##   oriented to the current flight direction — a wing spread, not a
 ##   single line. Skulls near the center of the wing pass through the
-##   player and hit; skulls further out whoosh past by design.
+##   player and hit; skulls further out whoosh past by design, and some
+##   are additionally nudged into a deliberate near-miss.
+##
+## MOMENTUM: steering no longer snaps velocity onto the target direction.
+## Every frame we compute a desired velocity (direction * speed + flock
+## force), turn that into an acceleration capped by _current_accel(), and
+## integrate. A light drag term is applied after that so a skull carries
+## momentum through a turn (wide arcs, overshoot, "never stops on a dime")
+## instead of behaving like a drone locked to its target.
+##
 ## After a campaign ends: scatters outward briefly, then drifts back into
 ##   its calm orbit on its own.
 
@@ -19,7 +28,7 @@ signal exploded(position: Vector3)
 
 @export var health: float = 1.0
 @export var attack_range: float = 5
-@export var touch_damage: float = 10.0
+@export var touch_damage: float = 5.0
 @export var explosion_radius: float = 2.0
 @export var explosion_damage: float = 0.0   # touch already deals damage; splash is separate/optional
 
@@ -27,6 +36,22 @@ signal exploded(position: Vector3)
 @export var warning_speed: float = 95.0      # extremely fast formation rush-in
 @export var attack_speed: float = 155.0      # fast, committed strike
 @export var recover_speed: float = 45.0
+
+# Momentum: acceleration is how hard the skull can push its velocity
+# toward its desired velocity each second; drag is a light air-resistance
+# term applied after that push. Low accel relative to speed = wide,
+# heavy turns. Calm accel is soft (lazy wandering); attack accel is much
+# harder (committed, but still not instant).
+@export var accel_calm: float = 18.0
+@export var accel_attack: float = 60.0
+@export var drag: float = 1.6
+
+# Speed isn't constant — it breathes between a low and high multiplier
+# per-skull via noise, so the flock never reads as a fleet of identical
+# drones moving at one speed. Attack phases get a bigger burst range.
+@export var speed_burst_amount: float = 0.22
+@export var speed_burst_attack_amount: float = 0.4
+@export var speed_burst_freq: float = 0.55
 
 # Turn/bank response is phase-based: slow and graceful while wandering,
 # still smooth but snappier while gathering/attacking.
@@ -45,8 +70,22 @@ signal exploded(position: Vector3)
 
 @export var recover_duration: float = 1.6
 
+# Some skulls are deliberately steered to whoosh past the player instead
+# of connecting — scarier than a straight hit because it reads as an
+# animal that could have killed you but chose not to (or almost didn't).
+@export var near_miss_chance: float = 0.35
+@export var near_miss_min: float = 0.5
+@export var near_miss_max: float = 2.2
+
 @export var scream_trigger_distance: float = 60.0
 @export var scream_reset_distance: float = 90.0
+
+# ─── Solo mode — an alternative to the flock/formation behavior above.
+## A solo skull ignores the leader entirely. It's spawned far out by the
+## Spawner (see initialize_solo), flies straight toward the player at a
+## moderate, trackable speed, commits to one fast strike pass once close,
+## then peels off far away again and repeats. Distances/speeds live on
+## the Spawner (solo_* exports) so they're tuned in one place.
 
 @onready var scream: AudioStreamPlayer3D = get_node_or_null("scream")
 @onready var death_particles: CPUParticles3D = $death_particles
@@ -56,12 +95,18 @@ const GOLDEN_ANGLE: float = 2.39996323
 
 enum Phase { CALM, WARNING, ATTACK }   # must mirror Spawner.Phase (same order = same ints)
 enum State { NORMAL, EXPLODING }
+enum SoloState { APPROACH, STRIKE, RETREAT }
 
 var state: State = State.NORMAL
 var spawner: Node = null
 var player: Node3D = null
 var slot_index: int = -1
 var chain_gap_frames: int = 5
+
+var is_solo: bool = false
+var _solo_state: SoloState = SoloState.APPROACH
+var _solo_target: Vector3 = Vector3.ZERO
+var _solo_strike_target: Vector3 = Vector3.ZERO
 
 var _ring_radius: float
 var _ring_speed: float
@@ -76,6 +121,8 @@ var _drift_offset: float
 var _turn_indiv_factor: float
 var _bank_indiv_factor: float
 var _speed_indiv_factor: float
+var _near_miss_pick: float      # per-skull roll: whether/how far this slot near-misses
+var _near_miss_side: float
 
 var _last_phase: int = -1
 var _recover_timer: float = 0.0
@@ -114,6 +161,17 @@ func initialize(swarm_spawner: Node, swarm_player: Node3D, slot: int, gap_frames
 	chain_gap_frames = gap_frames
 	_init_personality()
 
+## Called once by the Spawner for the independent "solo" pool instead of
+## initialize(). These skulls never touch leader_pos/formation offsets —
+## they run their own approach → strike → retreat loop.
+func initialize_solo(swarm_spawner: Node, swarm_player: Node3D, slot: int) -> void:
+	spawner = swarm_spawner
+	player = swarm_player
+	slot_index = slot
+	is_solo = true
+	_init_personality()
+	_begin_solo_approach()
+
 func _init_personality() -> void:
 	var s: float = float(slot_index)
 	_ring_radius = 9.0 + fmod(s * 3.3, 9.0)
@@ -132,6 +190,9 @@ func _init_personality() -> void:
 	_bank_indiv_factor = 0.92 + fmod(s * 0.11, 0.16)
 	_speed_indiv_factor = 0.9 + fmod(s * 0.071, 0.22)
 
+	_near_miss_pick = fmod(s * 0.6180339887, 1.0)     # golden-ratio hash, evenly spread in [0,1)
+	_near_miss_side = 1.0 if (slot_index % 2 == 0) else -1.0
+
 func _physics_process(delta: float) -> void:
 	if state == State.EXPLODING:
 		return
@@ -142,11 +203,15 @@ func _physics_process(delta: float) -> void:
 			return
 
 	_calm_time += delta
-	_track_phase_change(delta)
+	if is_solo:
+		_update_solo(delta)
+	else:
+		_track_phase_change(delta)
 	_update_scream()
 
 	var target: Vector3 = _current_target()
-	var speed: float = _current_speed()
+	var speed: float = _current_speed() * _speed_burst_multiplier()
+	var accel: float = _current_accel()
 	var turn_rate: float = _current_turn_rate()
 
 	# Low-pass filter the flock forces so a neighbor suddenly entering or
@@ -154,10 +219,28 @@ func _physics_process(delta: float) -> void:
 	var raw_flock: Vector3 = _flock_forces()
 	_smoothed_flock = _smoothed_flock.lerp(raw_flock, 3.0 * delta)
 
-	var steer: Vector3 = (target - global_position).normalized() * speed
-	steer += _smoothed_flock
+	var to_target: Vector3 = target - global_position
+	var desired_dir: Vector3
+	if to_target.length() > 0.01:
+		desired_dir = to_target.normalized()
+	elif velocity.length() > 0.01:
+		desired_dir = velocity.normalized()
+	else:
+		desired_dir = Vector3.FORWARD
 
-	velocity = velocity.lerp(steer, turn_rate * delta)
+	var desired_velocity: Vector3 = desired_dir * speed + _smoothed_flock
+
+	# MOMENTUM: push velocity toward desired_velocity at a capped rate
+	# (acceleration), then apply drag. This is what lets a skull carry
+	# speed through a turn instead of snapping onto the new heading —
+	# a dive keeps its speed past the player and swings back in a wide
+	# arc rather than stopping and reversing on the spot.
+	var accel_vec: Vector3 = desired_velocity - velocity
+	var max_delta_v: float = accel * delta
+	if accel_vec.length() > max_delta_v:
+		accel_vec = accel_vec.normalized() * max_delta_v
+	velocity += accel_vec
+	velocity *= clamp(1.0 - drag * delta, 0.0, 1.0)
 
 	var prev_pos: Vector3 = global_position
 	move_and_slide()
@@ -232,7 +315,47 @@ func _start_recovering() -> void:
 	).normalized()
 	_scatter_target = global_position + dir * randf_range(7.0, 15.0)
 
+## Solo behavior: fly straight at the player from wherever it spawned
+## (far away, so the approach is visible/trackable), commit to a fast
+## overshooting strike once close, then peel off to a new far point and
+## loop back into another approach.
+func _update_solo(delta: float) -> void:
+	if player == null or spawner == null:
+		return
+
+	match _solo_state:
+		SoloState.APPROACH:
+			_solo_target = player.global_position + Vector3(0, 3.0, 0)
+			if global_position.distance_to(player.global_position) <= spawner.solo_strike_trigger_distance:
+				_begin_solo_strike()
+		SoloState.STRIKE:
+			_solo_target = _solo_strike_target
+			if global_position.distance_to(_solo_strike_target) < 6.0:
+				_begin_solo_retreat()
+		SoloState.RETREAT:
+			if global_position.distance_to(_solo_target) < 10.0:
+				_begin_solo_approach()
+
+func _begin_solo_approach() -> void:
+	_solo_state = SoloState.APPROACH
+	_solo_target = player.global_position if player else global_position
+
+func _begin_solo_strike() -> void:
+	_solo_state = SoloState.STRIKE
+	var dir: Vector3 = (player.global_position - global_position)
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
+	var overshoot: float = randf_range(spawner.solo_overshoot_min, spawner.solo_overshoot_max)
+	_solo_strike_target = player.global_position + dir * overshoot + Vector3(0, randf_range(-2.0, 2.0), 0)
+	_solo_target = _solo_strike_target
+
+func _begin_solo_retreat() -> void:
+	_solo_state = SoloState.RETREAT
+	_solo_target = spawner.random_far_point()
+
 func _current_target() -> Vector3:
+	if is_solo:
+		return _solo_target
+
 	if spawner == null:
 		return player.global_position
 
@@ -245,14 +368,30 @@ func _current_target() -> Vector3:
 	var forward: Vector3 = spawner.get_leader_forward()
 
 	if spawner.phase == Phase.WARNING:
-		return spawner.leader_pos + spawner.get_formation_offset(slot_index, spawner.formation_radius, forward)
+		return spawner.leader_pos + spawner.get_formation_offset(slot_index, spawner.get_formation_radius(), forward)
 
 	# ATTACK: trail the leader's dive path like a segment of a serpent's
 	# body, spread into a wing formation. Center-slot skulls pass through
-	# the player and hit; outer ones whoosh past — some, not all, on purpose.
+	# the player and hit; outer ones whoosh past — and a subset get an
+	# extra deliberate near-miss nudge, which reads scarier than a hit.
 	var delay_frames: int = slot_index * chain_gap_frames
 	var base_pos: Vector3 = spawner.get_history_position(delay_frames)
-	return base_pos + spawner.get_formation_offset(slot_index, spawner.attack_formation_radius, forward)
+	var formation_offset: Vector3 = spawner.get_formation_offset(slot_index, spawner.get_attack_formation_radius(), forward)
+	return base_pos + formation_offset + _near_miss_offset(forward)
+
+## A small extra sideways nudge applied to some skulls during an attack
+## pass so they visibly clear the player by a hair instead of connecting.
+func _near_miss_offset(forward: Vector3) -> Vector3:
+	if _near_miss_pick > near_miss_chance:
+		return Vector3.ZERO
+
+	var right: Vector3 = forward.cross(Vector3.UP)
+	if right.length() < 0.01:
+		right = Vector3.RIGHT
+	right = right.normalized()
+
+	var mag: float = lerp(near_miss_min, near_miss_max, _near_miss_pick / max(near_miss_chance, 0.001))
+	return right * mag * _near_miss_side
 
 func _calm_target() -> Vector3:
 	var drift: float = 1.0 + _noise.get_noise_1d(_calm_time * 0.05 + _drift_offset) * 0.2
@@ -266,6 +405,14 @@ func _calm_target() -> Vector3:
 	)
 
 func _current_speed() -> float:
+	if is_solo:
+		var solo_base: float = spawner.solo_approach_speed
+		if _solo_state == SoloState.STRIKE:
+			solo_base = spawner.solo_strike_speed
+		elif _solo_state == SoloState.RETREAT:
+			solo_base = spawner.solo_retreat_speed
+		return solo_base * _speed_indiv_factor
+
 	var base: float
 	if _recover_timer > 0.0:
 		base = recover_speed
@@ -279,7 +426,28 @@ func _current_speed() -> float:
 		base = calm_speed
 	return base * _speed_indiv_factor
 
+## Per-skull speed noise so the flock doesn't move at one flat velocity —
+## surges and lulls per individual, wider swings during an attack.
+func _speed_burst_multiplier() -> float:
+	var amp: float = speed_burst_amount
+	if spawner != null and (spawner.phase == Phase.ATTACK or _recover_timer > 0.0):
+		amp = speed_burst_attack_amount
+	var n: float = _noise.get_noise_1d(_calm_time * speed_burst_freq + _drift_offset * 2.0 + 500.0)
+	return 1.0 + n * amp
+
+func _current_accel() -> float:
+	if is_solo:
+		return (accel_attack if _solo_state == SoloState.STRIKE else accel_calm) * _turn_indiv_factor
+
+	var accel: float = accel_calm
+	if _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
+		accel = accel_attack
+	return accel * _turn_indiv_factor
+
 func _current_turn_rate() -> float:
+	if is_solo:
+		return (turn_speed_attack if _solo_state == SoloState.STRIKE else turn_speed_calm) * _turn_indiv_factor
+
 	var base_turn: float = turn_speed_calm
 	if _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
 		base_turn = turn_speed_attack
@@ -300,14 +468,14 @@ func _flock_forces() -> Vector3:
 			continue
 		if dist < separation_radius:
 			separation_sum += (-to_other / dist) * (separation_radius - dist)
-		if dist < neighbor_radius:
+		if not is_solo and dist < neighbor_radius:
 			cohesion_sum += other.global_position
 			alignment_sum += other.velocity
 			neighbor_count += 1
 
 	var force: Vector3 = separation_sum * separation_strength
 
-	if neighbor_count > 0 and (spawner == null or spawner.phase == Phase.CALM):
+	if not is_solo and neighbor_count > 0 and (spawner == null or spawner.phase == Phase.CALM):
 		var to_center: Vector3 = (cohesion_sum / neighbor_count) - global_position
 		if to_center.length() > 0.01:
 			force += to_center.normalized() * cohesion_strength
@@ -330,7 +498,10 @@ func _update_rotation(delta: float, turn_rate: float) -> void:
 	target_basis = target_basis.rotated(Vector3.UP, model_forward_correction)
 
 	var bank_limit: float = max_bank_calm
-	if _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
+	if is_solo:
+		if _solo_state == SoloState.STRIKE:
+			bank_limit = max_bank_attack
+	elif _recover_timer > 0.0 or (spawner != null and spawner.phase != Phase.CALM):
 		bank_limit = max_bank_attack
 	bank_limit *= _bank_indiv_factor
 
@@ -356,9 +527,10 @@ func explode() -> void:
 		return
 	state = State.EXPLODING
 
-	# Notify spawner
+	# Notify spawner (which slot pool this belonged to matters — formation
+	# vs. solo have separate slot arrays)
 	if spawner and spawner.has_method("notify_skull_died"):
-		spawner.notify_skull_died(slot_index)
+		spawner.notify_skull_died(slot_index, is_solo)
 
 	# Award score
 	if player and player.has_method("add_score"):
