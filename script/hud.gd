@@ -4,6 +4,7 @@ extends CanvasLayer
 @onready var score_label: Label = $Score_Label
 @onready var health_bar: ProgressBar = $"../HealthBar"
 @onready var eye_health_bar: ProgressBar = $"../eye_HealthBar"
+@onready var proto_controller: CharacterBody3D = $".."
 
 const DESIGN_SIZE := Vector2(1920, 1080)
 
@@ -18,13 +19,22 @@ const EYE_TOP_MARGIN := 130.0
 const EYE_WIDTH := 570.0
 const EYE_HEIGHT := 15.0
 
+var game_over_triggered: bool = false
 
 func _ready():
 	update_layout()
 	get_viewport().size_changed.connect(update_layout)
 
 func _process(_delta):
-	eye_health_bar.health = GameData.eye_health
+	if GameData.eye_health > 0:
+		eye_health_bar.health = GameData.eye_health
+	
+	# --- ADDED: trigger game over when eye dies ---
+	if not game_over_triggered and GameData.eye_health <= 0:
+		game_over_triggered = true
+		await get_tree().create_timer(1.5).timeout
+		proto_controller.die()
+		#get_tree().change_scene_to_file("res://scenes/game_over.tscn")
 
 func update_layout():
 	var viewport_size = get_viewport().get_visible_rect().size
